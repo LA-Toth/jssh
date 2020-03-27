@@ -8,21 +8,18 @@ import java.net.Socket;
 import java.util.Date;
 
 public class SshProxy extends SshThread {
+    private TransportLayer transportLayer;
     public SshProxy(Config config, Socket s, InputStream is, OutputStream os) {
         super(config, s, is, os);
+        this.transportLayer = new TransportLayer(config, is, os);
     }
 
     @Override
     public void run() {
         try {
-            Writer out = new OutputStreamWriter(outputStream);
-            Date now = new Date();
-            out.write(now.toString() + "\r\n");
-            out.flush();
-        } catch (IOException e) {
+            this.transportLayer.start();
+        } catch (TransportLayerException e) {
             e.printStackTrace();
         }
-
-//        throw new NullPointerException("whaterver");
     }
 }

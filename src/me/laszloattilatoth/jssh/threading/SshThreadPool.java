@@ -33,10 +33,17 @@ public class SshThreadPool {
     public synchronized void cleanup() {
         while (finishedThreads.size() > 0) {
             Thread thread = finishedThreads.get(0);
-            try {
-                thread.join();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
+            if (thread.isAlive()) {
+                try {
+                    thread.wait();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                } catch(IllegalMonitorStateException e) {
+                    e.printStackTrace();
+                }
+            }
+            if (!thread.isAlive()) {
+                finishedThreads.remove(thread);
             }
         }
     }
@@ -48,16 +55,19 @@ public class SshThreadPool {
     }
 
     private static class SshThreadPoolThread extends Thread {
-        SshThreadPool pool;
-        SshThread runnable;
+        private SshThreadPool pool;
+        private SshThread runnable;
+        private static int lastThreadId = 0;
 
-        private SshThreadPoolThread(SshThreadPool p, SshThread r) {
+        private SshThreadPoolThread(int threadId, SshThreadPool p, SshThread r) {
+            super("SshThread-in-pool." + String.valueOf(threadId));
             pool = p;
             runnable = r;
         }
 
-        public static SshThreadPoolThread create(SshThreadPool pool, SshThread runnable) {
-            return new SshThreadPoolThread(pool, runnable);
+        public synchronized static SshThreadPoolThread create(SshThreadPool pool, SshThread runnable) {
+            lastThreadId += 1;
+            return new SshThreadPoolThread(lastThreadId, pool, runnable);
         }
 
         public void run() {
