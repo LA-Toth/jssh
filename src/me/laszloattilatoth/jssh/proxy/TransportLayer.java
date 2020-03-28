@@ -1,30 +1,34 @@
 package me.laszloattilatoth.jssh.proxy;
 
 import me.laszloattilatoth.jssh.Config;
-import org.apache.commons.codec.binary.Hex;
+import me.laszloattilatoth.jssh.Util;
 
 import java.io.*;
+import java.lang.ref.WeakReference;
 import java.nio.charset.StandardCharsets;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Based on RFC 4253 - The Secure Shell (SSH) Transport Layer Protocol
  */
 public class TransportLayer {
-    private Config config;
-    private DataInputStream dataInputStream = null;
-    private DataOutputStream dataOutputStream = null;
-
+    private final WeakReference<SshProxy> proxy;
+    private final Config config;
+    private final Logger logger;
     protected BufferedInputStream inputStream;
     protected BufferedOutputStream outputStream;
-
+    private DataInputStream dataInputStream = null;
+    private DataOutputStream dataOutputStream = null;
     private int macLength = 0;
 
-    public TransportLayer(Config config, InputStream is, OutputStream os) {
-        this.config = config;
+    public TransportLayer(SshProxy proxy, InputStream is, OutputStream os) {
+        this.proxy = new WeakReference<>(proxy);
+        this.logger = proxy.getLogger();
+        this.config = proxy.getConfig();
         this.inputStream = new BufferedInputStream(is);
         this.outputStream = new BufferedOutputStream(os);
     }
-
 
     /**
      * Starts the layer, aka. send / receive SSH-2.0... string
@@ -38,10 +42,10 @@ public class TransportLayer {
 
         try {
             byte[] packet = readPacket();
-            System.out.println(Hex.encodeHex(packet));
-            printBytes(packet);
+            Util.logBytes(packet);
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.severe("Unable to read version string;");
+            Util.logException(logger, e, Level.INFO);
             throw new TransportLayerException("Unable to read packet");
         }
     }
@@ -53,7 +57,8 @@ public class TransportLayer {
             out.flush();
             this.outputStream.flush();
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.severe("Unable to send version string;");
+            Util.logException(logger, e, Level.INFO);
         }
     }
 
@@ -61,69 +66,39 @@ public class TransportLayer {
         BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
 
         try {
-            String idString = reader.readLine();
-            while (!idString.startsWith("SSH-"))
-                idString = reader.readLine();
+            String versionString = reader.readLine();
+            while (!versionString.startsWith("SSH-"))
+                versionString = reader.readLine();
 
-            System.out.println("Remote ID String: " + idString);
+            logger.info("Remote ID String: " + versionString);
 
-            if (!idString.startsWith("SSH-2.0")) {
-                System.out.println("Unsupported SSH protocol");
+            if (!versionString.startsWith("SSH-2.0")) {
+                logger.severe(String.format("Unsupported SSH protocol; verson_string='%s'", versionString));
                 throw new TransportLayerException("Unsupported SSH protocol");
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            Util.logExceptionWithBacktrace(logger, e, Level.SEVERE);
         }
     }
 
+    /**
+     * Read packet as RFC 4253, 6.  Binary Packet Protocol
+     */
     private byte[] readPacket() throws IOException {
         int packetLength = dataInputStream.readInt();
         byte paddingLength = dataInputStream.readByte();
+        logger.info(() -> String.format("Read packet header; length='%d', padding_length='%d'",
+                packetLength, paddingLength));
 
         byte[] result = dataInputStream.readNBytes(packetLength - paddingLength - 1);
-        dataInputStream.readNBytes(paddingLength);
+        logger.fine(() -> "Read packet data;");
+        if (paddingLength > 0)
+            dataInputStream.readNBytes(paddingLength);
+        logger.fine(() -> "Read packet padding;");
+
         if (macLength > 0)
             dataInputStream.readNBytes(macLength);
 
         return result;
     }
-
-    private long readUint32() throws IOException {
-        long ch1 = dataInputStream.read();
-        long ch2 = dataInputStream.read();
-        long ch3 = dataInputStream.read();
-        long ch4 = dataInputStream.read();
-        if ((ch1 | ch2 | ch3 | ch4) < 0)
-            throw new EOFException();
-        return ((ch1 << 24) + (ch2 << 16) + (ch3 << 8) + ch4);
-    }
-
-    private void printBytes(byte[] bytes) {
-        int offset = 0;
-        while (offset < bytes.length) {
-            System.out.print(String.format("%04x: ", offset));
-            for (int i=0;i!=16;++i) {
-                if (offset + i < bytes.length)
-                System.out.print(String.format("%02x ", bytes[offset+i]));
-                else
-                    System.out.print("   ");
-            }
-
-            System.out.print(" ");
-            for (int i=0;i!=16;++i) {
-                int idx = offset +i;
-                if (idx < bytes.length) {
-                    if (bytes[idx] >= 32 && bytes[idx] <= 126)
-                    System.out.print(String.format("%c", bytes[idx]));
-                    else
-                        System.out.print(".");
-                }
-
-
-            }
-            System.out.println();
-            offset += 16;
-        }
-    }
-
 }

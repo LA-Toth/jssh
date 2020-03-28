@@ -1,8 +1,12 @@
 package me.laszloattilatoth.jssh.threading;
 
+import me.laszloattilatoth.jssh.Util;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class SshThreadPool {
     private int maxThreads;
@@ -37,9 +41,7 @@ public class SshThreadPool {
                 try {
                     thread.wait();
                 } catch (InterruptedException e) {
-                    e.printStackTrace();
-                } catch(IllegalMonitorStateException e) {
-                    e.printStackTrace();
+                    Util.logExceptionWithBacktrace(Logger.getGlobal(), e, Level.SEVERE);
                 }
             }
             if (!thread.isAlive()) {
@@ -54,30 +56,35 @@ public class SshThreadPool {
         thread.start();
     }
 
-    private static class SshThreadPoolThread extends Thread {
+    public static class SshThreadPoolThread extends Thread {
         private SshThreadPool pool;
-        private SshThread runnable;
-        private static int lastThreadId = 0;
+        private SshThread sshThread;
+        private Logger logger;
 
-        private SshThreadPoolThread(int threadId, SshThreadPool p, SshThread r) {
-            super("SshThread-in-pool." + String.valueOf(threadId));
-            pool = p;
-            runnable = r;
+        private SshThreadPoolThread(SshThreadPool p, SshThread thread) {
+            super(thread.getName());
+            this.pool = p;
+            this.sshThread = thread;
+            this.logger = thread.logger;
         }
 
-        public synchronized static SshThreadPoolThread create(SshThreadPool pool, SshThread runnable) {
-            lastThreadId += 1;
-            return new SshThreadPoolThread(lastThreadId, pool, runnable);
+        public synchronized static SshThreadPoolThread create(SshThreadPool pool, SshThread thread) {
+            return new SshThreadPoolThread(pool, thread);
+        }
+
+        public Logger logger() {
+            return logger;
         }
 
         public void run() {
             try {
-                runnable.run();
+                sshThread.run();
             } finally {
                 try {
-                    runnable.socket.close();
+                    sshThread.socket.close();
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    logger.severe("Unable to close socket of the SSH thread;");
+                    Util.logException(logger, e, Level.SEVERE);
                 }
                 pool.finishThread(this);
             }
