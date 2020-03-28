@@ -19,11 +19,20 @@ public class SshProxy extends SshThread {
 
     @Override
     public void run() {
+        logger.info(String.format("Starting proxy instance; client_address='%s:%d', client_local='%s:%d'",
+                socket.getInetAddress().getHostAddress(), socket.getPort(),
+                socket.getLocalAddress().getHostAddress(), socket.getLocalPort()));
         try {
-            this.transportLayer.start();
+            this.main();
         } catch (TransportLayerException e) {
             logger.severe(String.format("TransportLayerException occurred; message='%s'", e.getMessage()));
             Util.logExceptionWithBacktrace(logger, e, Level.INFO);
+        } finally {
+            logger.info("Ending proxy instance;");
         }
+    }
+
+    private void main() throws TransportLayerException {
+        this.transportLayer.start();
     }
 }
