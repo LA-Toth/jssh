@@ -5,7 +5,6 @@ import me.laszloattilatoth.jssh.Util;
 
 import java.io.*;
 import java.lang.ref.WeakReference;
-import java.nio.charset.StandardCharsets;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -13,11 +12,19 @@ import java.util.logging.Logger;
  * Based on RFC 4253 - The Secure Shell (SSH) Transport Layer Protocol
  */
 public class TransportLayer {
+    /**
+     * RFC 4253 6.1 Maximum packet length
+     * /* The implementation MUST be able to process packets with size 35000
+     */
+    public static final int MINIMUM_MAX_PACKET_SIZE = 35000;
+
+    public static final byte[] SSH_VERSION_STRING_PREFIX = "SSH-".getBytes();
+
     private final WeakReference<SshProxy> proxy;
     private final Config config;
     private final Logger logger;
-    protected BufferedInputStream inputStream;
-    protected BufferedOutputStream outputStream;
+    protected InputStream inputStream;
+    protected OutputStream outputStream;
     private DataInputStream dataInputStream = null;
     private DataOutputStream dataOutputStream = null;
     private int macLength = 0;
@@ -26,8 +33,8 @@ public class TransportLayer {
         this.proxy = new WeakReference<>(proxy);
         this.logger = proxy.getLogger();
         this.config = proxy.getConfig();
-        this.inputStream = new BufferedInputStream(is);
-        this.outputStream = new BufferedOutputStream(os);
+        this.inputStream = is;
+        this.outputStream = os;
     }
 
     /**
@@ -51,6 +58,7 @@ public class TransportLayer {
     }
 
     private void writeVersionString() {
+        logger.info("Sending version string; version='SSH-2.0-JSSH'");
         try {
             Writer out = new OutputStreamWriter(outputStream);
             out.write("SSH-2.0-JSSH\r\n");
@@ -63,22 +71,45 @@ public class TransportLayer {
     }
 
     private void readVersionString() throws TransportLayerException {
-        BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
-
         try {
-            String versionString = reader.readLine();
-            while (!versionString.startsWith("SSH-"))
-                versionString = reader.readLine();
+            Buffer buffer = new Buffer();
 
-            logger.info("Remote ID String: " + versionString);
+            int readBytes = readVersionStringToBuffer(buffer);
+            String versionString = new String(buffer.buffer, 0, readBytes);
 
             if (!versionString.startsWith("SSH-2.0")) {
                 logger.severe(String.format("Unsupported SSH protocol; verson_string='%s'", versionString));
                 throw new TransportLayerException("Unsupported SSH protocol");
             }
-        } catch (IOException e) {
+
+            logger.info("Remote ID String: " + versionString);
+        } catch (
+                IOException e) {
             Util.logExceptionWithBacktrace(logger, e, Level.SEVERE);
         }
+    }
+
+    private int readVersionStringToBuffer(Buffer buffer) throws IOException, TransportLayerException {
+        int readBytes;
+        while (true) {
+            readBytes = buffer.readLine(inputStream);
+
+            if (readBytes < SSH_VERSION_STRING_PREFIX.length + 3) continue;
+
+            boolean match = true;
+            for (int idx = 0; idx < SSH_VERSION_STRING_PREFIX.length; ++idx) {
+                if (buffer.buffer[idx] != SSH_VERSION_STRING_PREFIX[idx]) {
+                    match = false;
+                    break;
+                }
+            }
+            if (!match)
+                continue;
+
+            break;
+        }
+
+        return readBytes;
     }
 
     /**
