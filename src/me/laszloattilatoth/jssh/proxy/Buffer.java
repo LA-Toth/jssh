@@ -1,5 +1,7 @@
 package me.laszloattilatoth.jssh.proxy;
 
+import me.laszloattilatoth.jssh.transportlayer.TransportLayer;
+
 import java.io.IOException;
 import java.io.InputStream;
 

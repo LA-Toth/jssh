@@ -1,4 +1,4 @@
-package me.laszloattilatoth.jssh.proxy;
+package me.laszloattilatoth.jssh.transportlayer;
 
 public class TransportLayerException extends Exception {
     TransportLayerException(String s) {

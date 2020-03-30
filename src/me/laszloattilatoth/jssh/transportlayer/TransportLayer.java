@@ -1,7 +1,11 @@
-package me.laszloattilatoth.jssh.proxy;
+package me.laszloattilatoth.jssh.transportlayer;
 
 import me.laszloattilatoth.jssh.Config;
 import me.laszloattilatoth.jssh.Util;
+import me.laszloattilatoth.jssh.proxy.Buffer;
+import me.laszloattilatoth.jssh.proxy.Constant;
+import me.laszloattilatoth.jssh.proxy.Packet;
+import me.laszloattilatoth.jssh.proxy.SshProxy;
 
 import java.io.*;
 import java.lang.ref.WeakReference;

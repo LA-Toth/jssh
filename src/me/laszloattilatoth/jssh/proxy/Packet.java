@@ -13,12 +13,6 @@ public class Packet {
     private byte[] buffer;
     private int position = 0;
 
-    public static final class BufferEndReachedException extends Exception {
-        BufferEndReachedException(String s) {
-            super(s);
-        }
-    }
-
     public Packet(byte[] bytes) {
         this.buffer = bytes;
     }
@@ -45,12 +39,12 @@ public class Packet {
         return position;
     }
 
-    /* readX: based on RFC 2451 5.  Data Type Representations Used in the SSH Protocols */
-
     public byte readByte() throws BufferEndReachedException {
         checkPosition(1);
         return buffer[position++];
     }
+
+    /* readX: based on RFC 2451 5.  Data Type Representations Used in the SSH Protocols */
 
     public boolean readBoolean() throws BufferEndReachedException {
         return readByte() != 0;
@@ -112,5 +106,11 @@ public class Packet {
         position += length;
 
         return result;
+    }
+
+    public static final class BufferEndReachedException extends Exception {
+        BufferEndReachedException(String s) {
+            super(s);
+        }
     }
 }
