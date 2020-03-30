@@ -1,6 +1,14 @@
 package me.laszloattilatoth.jssh.proxy;
 
 public class Constant {
+    /**
+     * RFC 4253 6.1 Maximum packet length
+     * /* The implementation MUST be able to process packets with size 35000
+     */
+    public static final int MINIMUM_MAX_PACKET_SIZE = 35000;
+
+    public static final byte[] SSH_VERSION_STRING_PREFIX = "SSH-".getBytes();
+
     /*
         RFC 2450  SSH Protocol Assigned Numbers
         4.1.  Message Numbers

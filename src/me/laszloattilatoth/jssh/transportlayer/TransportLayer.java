@@ -17,14 +17,6 @@ import java.util.logging.Logger;
  * Based on RFC 4253 - The Secure Shell (SSH) Transport Layer Protocol
  */
 public class TransportLayer {
-    /**
-     * RFC 4253 6.1 Maximum packet length
-     * /* The implementation MUST be able to process packets with size 35000
-     */
-    public static final int MINIMUM_MAX_PACKET_SIZE = 35000;
-
-    public static final byte[] SSH_VERSION_STRING_PREFIX = "SSH-".getBytes();
-
     private final WeakReference<SshProxy> proxy;
     private final Config config;
     private final Logger logger;
@@ -103,11 +95,11 @@ public class TransportLayer {
         while (true) {
             readBytes = buffer.readLine(dataInputStream);
 
-            if (readBytes < SSH_VERSION_STRING_PREFIX.length + 3) continue;
+            if (readBytes < Constant.SSH_VERSION_STRING_PREFIX.length + 3) continue;
 
             boolean match = true;
-            for (int idx = 0; idx < SSH_VERSION_STRING_PREFIX.length; ++idx) {
-                if (buffer.buffer[idx] != SSH_VERSION_STRING_PREFIX[idx]) {
+            for (int idx = 0; idx < Constant.SSH_VERSION_STRING_PREFIX.length; ++idx) {
+                if (buffer.buffer[idx] != Constant.SSH_VERSION_STRING_PREFIX[idx]) {
                     match = false;
                     break;
                 }

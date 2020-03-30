@@ -1,7 +1,5 @@
 package me.laszloattilatoth.jssh.proxy;
 
-import me.laszloattilatoth.jssh.transportlayer.TransportLayer;
-
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -15,7 +13,7 @@ public class Buffer {
     public int lastBytePosition;
 
     public Buffer() {
-        this(TransportLayer.MINIMUM_MAX_PACKET_SIZE);
+        this(Constant.MINIMUM_MAX_PACKET_SIZE);
     }
 
     public Buffer(int size) {
