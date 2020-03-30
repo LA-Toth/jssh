@@ -43,8 +43,8 @@ public class TransportLayer {
         readVersionString();
 
         try {
-            byte[] packet = readPacket();
-            Util.logBytes(packet);
+            Packet packet = readPacket();
+            packet.dump();
         } catch (IOException e) {
             logger.severe("Unable to read version string;");
             Util.logException(logger, e, Level.INFO);
@@ -107,13 +107,14 @@ public class TransportLayer {
     /**
      * Read packet as RFC 4253, 6.  Binary Packet Protocol
      */
-    private byte[] readPacket() throws IOException {
+    private Packet readPacket() throws IOException {
+        logger.info("Reading next packet");
         int packetLength = dataInputStream.readInt();
         byte paddingLength = dataInputStream.readByte();
         logger.info(() -> String.format("Read packet header; length='%d', padding_length='%d'",
                 packetLength, paddingLength));
 
-        byte[] result = dataInputStream.readNBytes(packetLength - paddingLength - 1);
+        byte[] data = dataInputStream.readNBytes(packetLength - paddingLength - 1);
         logger.fine(() -> "Read packet data;");
         if (paddingLength > 0)
             dataInputStream.readNBytes(paddingLength);
@@ -122,6 +123,6 @@ public class TransportLayer {
         if (macLength > 0)
             dataInputStream.readNBytes(macLength);
 
-        return result;
+        return new Packet(data);
     }
 }
