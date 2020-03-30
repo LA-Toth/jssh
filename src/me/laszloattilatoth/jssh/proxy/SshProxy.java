@@ -35,4 +35,6 @@ public class SshProxy extends SshThread {
     private void main() throws TransportLayerException {
         this.transportLayer.start();
     }
+
+    public void shouldQuit() {}
 }

@@ -5,6 +5,7 @@ import me.laszloattilatoth.jssh.Util;
 
 import java.io.*;
 import java.lang.ref.WeakReference;
+import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -26,6 +27,8 @@ public class TransportLayer {
     protected DataInputStream dataInputStream = null;
     protected DataOutputStream dataOutputStream = null;
     private int macLength = 0;
+    private PacketHandler[] packetHandlers = new PacketHandler[256];
+    private String[] packetTypeNames = new String[256];
 
     public TransportLayer(SshProxy proxy, InputStream is, OutputStream os) {
         this.proxy = new WeakReference<>(proxy);
@@ -33,23 +36,33 @@ public class TransportLayer {
         this.config = proxy.getConfig();
         this.dataInputStream = new DataInputStream(is);
         this.dataOutputStream = new DataOutputStream(os);
+        this.setupHandlers();
+    }
+
+    private void setupHandlers() {
+        registerHandler(Constant.SSH_MSG_IGNORE, this::processMsgIngore, Constant.SSH_MSG_NAMES[Constant.SSH_MSG_IGNORE]);
+        registerHandler(Constant.SSH_MSG_DEBUG, this::processMsgIngore, Constant.SSH_MSG_NAMES[Constant.SSH_MSG_DEBUG]);
+        registerHandler(Constant.SSH_MSG_KEXINIT, this::processMsgKexInit, Constant.SSH_MSG_NAMES[Constant.SSH_MSG_KEXINIT]);
+    }
+
+    public void registerHandler(int packetType, PacketHandler handler, String packetTypeName) {
+        packetHandlers[packetType] = handler;
+        packetTypeNames[packetType] = packetTypeName;
+    }
+
+    public void unregisterHandler(int packetType) {
+        packetHandlers[packetType] = null;
+        packetTypeNames[packetType] = null;
     }
 
     /**
      * Starts the layer, aka. send / receive SSH-2.0... string
+     * and do the first KEX
      */
     public void start() throws TransportLayerException {
         writeVersionString();
         readVersionString();
-
-        try {
-            Packet packet = readPacket();
-            packet.dump();
-        } catch (IOException e) {
-            logger.severe("Unable to read version string;");
-            Util.logException(logger, e, Level.INFO);
-            throw new TransportLayerException("Unable to read packet");
-        }
+        exchangeKeys();
     }
 
     private void writeVersionString() {
@@ -104,6 +117,27 @@ public class TransportLayer {
         return readBytes;
     }
 
+    private void exchangeKeys() throws TransportLayerException {
+        try {
+            readAndHandlePacket();
+        } catch (IOException e) {
+            logger.severe("Unable to read version string;");
+            Util.logException(logger, e, Level.INFO);
+            throw new TransportLayerException("Unable to read packet");
+        }
+    }
+
+    public void readAndHandlePacket() throws IOException, TransportLayerException {
+        Packet packet = readPacket();
+        packet.dump();
+        byte packetType = packet.getType();
+        if (packetHandlers[packetType] != null) {
+            logger.info(() -> String.format("Processing packet; type='%d', hex_type='%x', type_name='%s'",
+                    packetType, packetType, packetTypeNames[packetType]));
+            packetHandlers[packetType].handle(packet);
+        } else processMsgNotImplemented(packet);
+    }
+
     /**
      * Read packet as RFC 4253, 6.  Binary Packet Protocol
      */
@@ -124,5 +158,30 @@ public class TransportLayer {
             dataInputStream.readNBytes(macLength);
 
         return new Packet(data);
+    }
+
+    private void processMsgDisconnect(Packet packet) throws TransportLayerException {
+        try {
+            packet.readByte();
+            long reasonCode = packet.readUint32AsLong();
+            String description = packet.readString();
+            String reason = reasonCode <= Constant.SSH_DISCONNECT_MAX_REASON_CODE ? Constant.SSH_DISCONNECT_NAMES[(int) reasonCode] : "(Unknown)";
+            logger.info(String.format("Received disconnect message; reason_code='%s', reason='%s', description='%s'", reasonCode, reason, description));
+            Objects.requireNonNull(proxy.get()).shouldQuit();
+        } catch (Packet.BufferEndReachedException e) {
+            throw new TransportLayerException(e.getMessage());
+        }
+    }
+
+    private void processMsgIngore(Packet packet) {
+    }
+
+    private void processMsgKexInit(Packet packet) {
+    }
+
+    private void processMsgNotImplemented(Packet packet) {
+        byte packetType = packet.getType();
+        logger.info(() -> String.format("Processing unimplemented packet; type='%d', hex_type='%x'",
+                packetType, packetType));
     }
 }
