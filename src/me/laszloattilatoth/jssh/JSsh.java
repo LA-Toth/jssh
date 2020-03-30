@@ -30,6 +30,7 @@ public class JSsh {
                     Socket connection = null;
                     try {
                         connection = server.accept();
+                        connection.setTcpNoDelay(true);
                     } catch (IOException ex) {
                         Util.logExceptionWithBacktrace(logger, ex, Level.SEVERE);
                         continue;
