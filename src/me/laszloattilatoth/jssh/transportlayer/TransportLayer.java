@@ -17,6 +17,9 @@ import java.util.logging.Logger;
  * Based on RFC 4253 - The Secure Shell (SSH) Transport Layer Protocol
  */
 public class TransportLayer {
+    private static final String UNKNOWN_STR = "(unknown)";
+    private static final String NOT_IMPLEMENTED_STR = "(not implemented)";
+
     private final WeakReference<SshProxy> proxy;
     private final Config config;
     private final Logger logger;
@@ -36,8 +39,13 @@ public class TransportLayer {
     }
 
     private void setupHandlers() {
-        registerHandler(Constant.SSH_MSG_IGNORE, this::processMsgIngore, Constant.SSH_MSG_NAMES[Constant.SSH_MSG_IGNORE]);
-        registerHandler(Constant.SSH_MSG_DEBUG, this::processMsgIngore, Constant.SSH_MSG_NAMES[Constant.SSH_MSG_DEBUG]);
+        for (int i = 0; i != packetHandlers.length; ++i)
+            registerHandler(i, this::handleNotImplementedPacket, NOT_IMPLEMENTED_STR);
+
+        registerHandler(Constant.SSH_MSG_DISCONNECT, this::processMsgDisconnect, Constant.SSH_MSG_NAMES[Constant.SSH_MSG_DISCONNECT]);
+        registerHandler(Constant.SSH_MSG_IGNORE, this::processMsgIgnore, Constant.SSH_MSG_NAMES[Constant.SSH_MSG_IGNORE]);
+        registerHandler(Constant.SSH_MSG_UNIMPLEMENTED, this::processMsgUnimplemented, Constant.SSH_MSG_NAMES[Constant.SSH_MSG_UNIMPLEMENTED]);
+        registerHandler(Constant.SSH_MSG_DEBUG, this::processMsgIgnore, Constant.SSH_MSG_NAMES[Constant.SSH_MSG_DEBUG]);
         registerHandler(Constant.SSH_MSG_KEXINIT, this::processMsgKexInit, Constant.SSH_MSG_NAMES[Constant.SSH_MSG_KEXINIT]);
     }
 
@@ -47,8 +55,7 @@ public class TransportLayer {
     }
 
     public void unregisterHandler(int packetType) {
-        packetHandlers[packetType] = null;
-        packetTypeNames[packetType] = null;
+        registerHandler(packetType, this::handleNotImplementedPacket, NOT_IMPLEMENTED_STR);
     }
 
     /**
@@ -127,11 +134,9 @@ public class TransportLayer {
         Packet packet = readPacket();
         packet.dump();
         byte packetType = packet.getType();
-        if (packetHandlers[packetType] != null) {
-            logger.info(() -> String.format("Processing packet; type='%d', hex_type='%x', type_name='%s'",
-                    packetType, packetType, packetTypeNames[packetType]));
-            packetHandlers[packetType].handle(packet);
-        } else processMsgNotImplemented(packet);
+        logger.info(() -> String.format("Processing packet; type='%d', hex_type='%x', type_name='%s'",
+                packetType, packetType, packetTypeNames[packetType]));
+        packetHandlers[packetType].handle(packet);
     }
 
     /**
@@ -169,15 +174,19 @@ public class TransportLayer {
         }
     }
 
-    private void processMsgIngore(Packet packet) {
+    private void processMsgIgnore(Packet packet) {
     }
 
     private void processMsgKexInit(Packet packet) {
     }
 
-    private void processMsgNotImplemented(Packet packet) {
+    private void processMsgUnimplemented(Packet packet) {
         byte packetType = packet.getType();
         logger.info(() -> String.format("Processing unimplemented packet; type='%d', hex_type='%x'",
                 packetType, packetType));
+    }
+
+    private void handleNotImplementedPacket(Packet packet) {
+        // TODO: what to do if a packet is not handled
     }
 }
