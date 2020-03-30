@@ -23,18 +23,16 @@ public class TransportLayer {
     private final WeakReference<SshProxy> proxy;
     private final Config config;
     private final Logger logger;
-    protected InputStream inputStream;
-    protected OutputStream outputStream;
-    private DataInputStream dataInputStream = null;
-    private DataOutputStream dataOutputStream = null;
+    protected DataInputStream dataInputStream = null;
+    protected DataOutputStream dataOutputStream = null;
     private int macLength = 0;
 
     public TransportLayer(SshProxy proxy, InputStream is, OutputStream os) {
         this.proxy = new WeakReference<>(proxy);
         this.logger = proxy.getLogger();
         this.config = proxy.getConfig();
-        this.inputStream = is;
-        this.outputStream = os;
+        this.dataInputStream = new DataInputStream(is);
+        this.dataOutputStream = new DataOutputStream(os);
     }
 
     /**
@@ -43,9 +41,6 @@ public class TransportLayer {
     public void start() throws TransportLayerException {
         writeVersionString();
         readVersionString();
-
-        this.dataInputStream = new DataInputStream(this.inputStream);
-        this.dataOutputStream = new DataOutputStream(this.outputStream);
 
         try {
             byte[] packet = readPacket();
@@ -60,10 +55,7 @@ public class TransportLayer {
     private void writeVersionString() {
         logger.info("Sending version string; version='SSH-2.0-JSSH'");
         try {
-            Writer out = new OutputStreamWriter(outputStream);
-            out.write("SSH-2.0-JSSH\r\n");
-            out.flush();
-            this.outputStream.flush();
+            this.dataOutputStream.writeBytes("SSH-2.0-JSSH\r\n");
         } catch (IOException e) {
             logger.severe("Unable to send version string;");
             Util.logException(logger, e, Level.INFO);
@@ -92,7 +84,7 @@ public class TransportLayer {
     private int readVersionStringToBuffer(Buffer buffer) throws IOException, TransportLayerException {
         int readBytes;
         while (true) {
-            readBytes = buffer.readLine(inputStream);
+            readBytes = buffer.readLine(dataInputStream);
 
             if (readBytes < SSH_VERSION_STRING_PREFIX.length + 3) continue;
 
