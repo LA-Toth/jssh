@@ -90,22 +90,14 @@ public class Packet {
         int length = readUint32();
         checkPosition(length);
 
-        int startPos = position;
-        int endPos = position;
-        ArrayList<String> result = new ArrayList<>();
-
-        for (int i = 0; i < length; ++i) {
-            if (buffer[endPos] == ',') {
-                result.add(new String(buffer, startPos, endPos - startPos - 1));
-                startPos = endPos + 1;
-            }
-            endPos++;
-        }
-
-        result.add(new String(buffer, startPos, endPos - startPos - 1));
+        ArrayList<String> result = Util.splitNameList(buffer, position, length);
         position += length;
 
         return result;
+    }
+
+    public int[] readNameIdList() throws BufferEndReachedException {
+        return Util.getIdListFromNameArrayList(readNameList());
     }
 
     public static final class BufferEndReachedException extends Exception {
