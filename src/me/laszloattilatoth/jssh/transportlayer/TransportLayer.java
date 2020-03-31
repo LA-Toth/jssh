@@ -2,10 +2,8 @@ package me.laszloattilatoth.jssh.transportlayer;
 
 import me.laszloattilatoth.jssh.Config;
 import me.laszloattilatoth.jssh.Util;
-import me.laszloattilatoth.jssh.proxy.Buffer;
-import me.laszloattilatoth.jssh.proxy.Constant;
-import me.laszloattilatoth.jssh.proxy.Packet;
-import me.laszloattilatoth.jssh.proxy.Side;
+import me.laszloattilatoth.jssh.kex.KeyExchange;
+import me.laszloattilatoth.jssh.proxy.*;
 
 import java.io.*;
 import java.lang.ref.WeakReference;
@@ -23,6 +21,7 @@ public abstract class TransportLayer {
     private final WeakReference<SshProxy> proxy;
     private final Config config;
     private final Logger logger;
+    private final KeyExchange kex;
     protected DataInputStream dataInputStream = null;
     protected DataOutputStream dataOutputStream = null;
     private int macLength = 0;
@@ -36,6 +35,7 @@ public abstract class TransportLayer {
         this.dataInputStream = new DataInputStream(is);
         this.dataOutputStream = new DataOutputStream(os);
         this.side = side;
+        this.kex = new KeyExchange(this);
         this.setupHandlers();
     }
 
@@ -47,7 +47,7 @@ public abstract class TransportLayer {
         registerHandler(Constant.SSH_MSG_IGNORE, this::processMsgIgnore, Constant.SSH_MSG_NAMES[Constant.SSH_MSG_IGNORE]);
         registerHandler(Constant.SSH_MSG_UNIMPLEMENTED, this::processMsgUnimplemented, Constant.SSH_MSG_NAMES[Constant.SSH_MSG_UNIMPLEMENTED]);
         registerHandler(Constant.SSH_MSG_DEBUG, this::processMsgIgnore, Constant.SSH_MSG_NAMES[Constant.SSH_MSG_DEBUG]);
-        registerHandler(Constant.SSH_MSG_KEXINIT, this::processMsgKexInit, Constant.SSH_MSG_NAMES[Constant.SSH_MSG_KEXINIT]);
+        registerHandler(Constant.SSH_MSG_KEXINIT, kex::processMsgKexInit, Constant.SSH_MSG_NAMES[Constant.SSH_MSG_KEXINIT]);
     }
 
     public void registerHandler(int packetType, PacketHandler handler, String packetTypeName) {
@@ -57,6 +57,10 @@ public abstract class TransportLayer {
 
     public void unregisterHandler(int packetType) {
         registerHandler(packetType, this::handleNotImplementedPacket, NOT_IMPLEMENTED_STR);
+    }
+
+    public final Config getConfig() {
+        return config;
     }
 
     /**
@@ -176,9 +180,6 @@ public abstract class TransportLayer {
     }
 
     private void processMsgIgnore(Packet packet) {
-    }
-
-    private void processMsgKexInit(Packet packet) {
     }
 
     private void processMsgUnimplemented(Packet packet) {
