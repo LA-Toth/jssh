@@ -1,3 +1,6 @@
 /target
 /out
 /*.jar
+src/me/laszloattilatoth/jssh/proxy/Name.java
+
+*.iml

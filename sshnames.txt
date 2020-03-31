@@ -1,0 +1,89 @@
+# RFC 4250 4.7.  Service Names
+ssh-userauth
+ssh-connection
+
+# RFC 4250 4.8.  Authentication Method Names
+publickey
+password
+hostbased
+none
+
+
+# RFC 4250 4.9.1.  Connection Protocol Channel Types
+session
+x11
+forwarded-tcpip
+direct-tcpip
+
+# 4.9.2.  Connection Protocol Global Request Names
+tcpip-forward
+cancel-tcpip-forward
+
+# 4.9.3.  Connection Protocol Channel Request Names
+pty-req
+x11-req
+env
+shell
+exec
+subsystem
+window-change
+xon-xoff
+signal
+exit-status
+exit-signal
+
+# 4.9.4.  Initial Assignment of Signal Names
+ABRT
+ALRM
+FPE
+HUP
+ILL
+INT
+KILL
+PIPE
+QUIT
+SEGV
+TERM
+USR1
+USR2
+
+
+# 4.10.  Key Exchange Method Names
+diffie-hellman-group1-sha1
+diffie-hellman-group14-sha1
+
+# 4.11.1.  Encryption Algorithm Names
+3des-cbc
+blowfish-cbc
+twofish256-cbc
+twofish-cbc
+twofish192-cbc
+twofish128-cbc
+aes256-cbc
+aes192-cbc
+aes128-cbc
+serpent256-cbc
+serpent192-cbc
+serpent128-cbc
+arcfour
+idea-cbc
+cast128-cbc
+none
+des-cbc
+
+# 4.11.2.  MAC Algorithm Names
+hmac-sha1
+hmac-sha1-96
+hmac-md5
+hmac-md5-96
+none
+
+# 4.11.3.  Public Key Algorithm Names
+ssh-dss
+ssh-rsa
+pgp-sign-rsa
+pgp-sign-dss
+
+# 4.11.4 Compression Algorithm Names
+none
+zlib
