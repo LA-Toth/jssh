@@ -5,7 +5,7 @@ import me.laszloattilatoth.jssh.Util;
 import me.laszloattilatoth.jssh.proxy.Buffer;
 import me.laszloattilatoth.jssh.proxy.Constant;
 import me.laszloattilatoth.jssh.proxy.Packet;
-import me.laszloattilatoth.jssh.proxy.SshProxy;
+import me.laszloattilatoth.jssh.proxy.Side;
 
 import java.io.*;
 import java.lang.ref.WeakReference;
@@ -16,10 +16,10 @@ import java.util.logging.Logger;
 /**
  * Based on RFC 4253 - The Secure Shell (SSH) Transport Layer Protocol
  */
-public class TransportLayer {
+public abstract class TransportLayer {
     private static final String UNKNOWN_STR = "(unknown)";
     private static final String NOT_IMPLEMENTED_STR = "(not implemented)";
-
+    public final Side side;
     private final WeakReference<SshProxy> proxy;
     private final Config config;
     private final Logger logger;
@@ -29,12 +29,13 @@ public class TransportLayer {
     private PacketHandler[] packetHandlers = new PacketHandler[256];
     private String[] packetTypeNames = new String[256];
 
-    public TransportLayer(SshProxy proxy, InputStream is, OutputStream os) {
+    public TransportLayer(SshProxy proxy, InputStream is, OutputStream os, Side side) {
         this.proxy = new WeakReference<>(proxy);
         this.logger = proxy.getLogger();
         this.config = proxy.getConfig();
         this.dataInputStream = new DataInputStream(is);
         this.dataOutputStream = new DataOutputStream(os);
+        this.side = side;
         this.setupHandlers();
     }
 

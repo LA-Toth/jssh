@@ -107,6 +107,9 @@ public class Constant {
     public static final int SSH_OPEN_UNKNOWN_CHANNEL_TYPE = 3;
     public static final int SSH_OPEN_RESOURCE_SHORTAGE = 4;
 
+    public static final Side CLIENT_SIDE = Side.CLIENT;
+    public static final Side SERVER_SIDE = Side.SERVER;
+
     static {
         SSH_MSG_NAMES[SSH_MSG_DISCONNECT] = "SSH_MSG_DISCONNECT";
         SSH_MSG_NAMES[SSH_MSG_IGNORE] = "SSH_MSG_IGNORE";
