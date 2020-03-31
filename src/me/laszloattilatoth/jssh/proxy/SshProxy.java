@@ -3,6 +3,7 @@ package me.laszloattilatoth.jssh.proxy;
 import me.laszloattilatoth.jssh.Config;
 import me.laszloattilatoth.jssh.Util;
 import me.laszloattilatoth.jssh.threading.SshThread;
+import me.laszloattilatoth.jssh.transportlayer.ClientSideTransportLayer;
 import me.laszloattilatoth.jssh.transportlayer.TransportLayer;
 import me.laszloattilatoth.jssh.transportlayer.TransportLayerException;
 
@@ -16,7 +17,7 @@ public class SshProxy extends SshThread {
 
     public SshProxy(Config config, Socket s, InputStream is, OutputStream os) {
         super(config, s, is, os);
-        this.transportLayer = new TransportLayer(this, is, os);
+        this.transportLayer = new ClientSideTransportLayer(this, is, os);
     }
 
     @Override
