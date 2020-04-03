@@ -4,6 +4,7 @@ import me.laszloattilatoth.jssh.Util;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -28,6 +29,10 @@ public class Packet {
         return buffer[0];
     }
 
+    public int getLength() {
+        return buffer.length;
+    }
+
     public void dump() {
         Logger logger = Util.sshLogger();
         logger.info(() -> String.format("Packet dump follows; packet_type='%d', packet_type_hex='%x', length='%d'",
@@ -39,9 +44,25 @@ public class Packet {
         return position;
     }
 
-    public byte readByte() throws BufferEndReachedException {
+    public void resetPosition() {
+        position = 0;
+    }
+
+    public int readByte() throws BufferEndReachedException {
         checkPosition(1);
-        return buffer[position++];
+        return buffer[position++] & 0xff;
+    }
+
+    private int readByteUnchecked() {
+        return buffer[position++] & 0xff;
+    }
+
+    public byte[] readBytes(int length) throws BufferEndReachedException {
+        checkPosition(length);
+        byte[] result = new byte[length];
+        System.arraycopy(buffer, position, result, 0, length);
+        position += length;
+        return result;
     }
 
     /* readX: based on RFC 2451 5.  Data Type Representations Used in the SSH Protocols */
@@ -52,20 +73,38 @@ public class Packet {
 
     public int readUint32() throws BufferEndReachedException {
         checkPosition(4);
-        return ((buffer[position++] << 24) + (buffer[position++] << 16) + (buffer[position++] << 8) + (buffer[position++]));
+        logBytes(4);
+        return ((readByteUnchecked() << 24) + (readByteUnchecked() << 16) + (readByteUnchecked() << 8) + readByteUnchecked());
+    }
+
+    private void logBytes(int length) {
+        Logger logger = Util.sshLogger();
+        if (!logger.isLoggable(Level.FINEST))
+            return;
+
+        logger.finest(String.format("Log packet bytes; position='%d', hexpos='%04x', count='%d'", position, position, length));
+        for (int i = 0; i != length; ++i) {
+            int val = buffer[position + i] & 0xff;
+            logger.finest(String.format("Packet byte; hex='%02x', dec='%d', val='%c', offset='%d'",
+                    val, val,
+                    (val < 32 || val > 126) ? '.' : val,
+                    i));
+        }
     }
 
     public long readUint32AsLong() throws BufferEndReachedException {
         checkPosition(4);
-        return (((long) buffer[position++] << 24) + (buffer[position++] << 16) + (buffer[position++] << 8) + (buffer[position++]));
+        logBytes(4);
+        return (((long) readByteUnchecked() << 24) + ((long) readByteUnchecked() << 16) + ((long) readByteUnchecked() << 8) + ((long) readByteUnchecked()));
     }
 
     public long readUint64() throws BufferEndReachedException {
-        checkPosition(4);
-        return (((long) buffer[position++] << 56) + ((long) buffer[position++] << 48) +
-                ((long) buffer[position++] << 40) + ((long) buffer[position++] << 32) +
-                (buffer[position++] << 24) + (buffer[position++] << 16) +
-                (buffer[position++] << 8) + (buffer[position++]));
+        checkPosition(8);
+        logBytes(8);
+        return (((long) readByteUnchecked() << 56) + ((long) readByteUnchecked() << 48) +
+                ((long) readByteUnchecked() << 40) + ((long) readByteUnchecked() << 32) +
+                ((long) readByteUnchecked() << 24) + ((long) readByteUnchecked() << 16) +
+                ((long) readByteUnchecked() << 8) + ((long) readByteUnchecked()));
     }
 
     public String readString() throws BufferEndReachedException {
