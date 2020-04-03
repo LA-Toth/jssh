@@ -17,11 +17,13 @@ def get_names(filename: str) -> typing.List[str]:
 
     with open(filename) as f:
         for line in f:
-            line = line.strip()
-            if not line or line.startswith('#'):
+            line = line.rstrip()
+            if not line or line.startswith('#') or line.startswith(' '):
                 continue
-            if line not in names:
-                names.append(line)
+
+            name = line.split(' ')[0].strip('"')
+            if name not in names:
+                names.append(name)
 
     return names
 
