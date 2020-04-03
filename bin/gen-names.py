@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+
 import typing
 
 SRC = 'sshnames.txt'
@@ -83,6 +84,14 @@ def write_methods_and_footer(f):
         '',
         f'{INDENT}public static int getNameId(String name) {{',
         f'{INDENT}{INDENT}return SSH_NAME_STRING_TO_ID.getOrDefault(name, 0);',
+        f'{INDENT}}}',
+        '',
+        f'{INDENT}public static boolean hasName(String name) {{',
+        f'{INDENT}{INDENT}return SSH_NAME_STRING_TO_ID.getOrDefault(name, -1) > -1;',
+        f'{INDENT}}}',
+        '',
+        f'{INDENT}public static boolean isUnknownName(String name) {{',
+        f'{INDENT}{INDENT}return !hasName(name);',
         f'{INDENT}}}',
         f'}}',
     ]) + "\n")
