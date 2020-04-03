@@ -63,6 +63,10 @@ public abstract class TransportLayer {
         return config;
     }
 
+    public final Logger getLogger() {
+        return logger;
+    }
+
     /**
      * Starts the layer, aka. send / receive SSH-2.0... string
      * and do the first KEX
@@ -139,8 +143,8 @@ public abstract class TransportLayer {
         Packet packet = readPacket();
         packet.dump();
         byte packetType = packet.getType();
-        logger.info(() -> String.format("Processing packet; type='%d', hex_type='%x', type_name='%s'",
-                packetType, packetType, packetTypeNames[packetType]));
+        logger.info(() -> String.format("Processing packet; type='%d', hex_type='%x', type_name='%s', length='%d'",
+                packetType, packetType, packetTypeNames[packetType], packet.getLength()));
         packetHandlers[packetType].handle(packet);
     }
 

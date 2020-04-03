@@ -1,6 +1,7 @@
 package me.laszloattilatoth.jssh;
 
 import me.laszloattilatoth.jssh.proxy.Name;
+import me.laszloattilatoth.jssh.proxy.Side;
 import me.laszloattilatoth.jssh.threading.SshThreadPool;
 
 import java.util.ArrayList;
@@ -157,5 +158,9 @@ public class Util {
 
         nameIds[nameIds.length - 1] = 0;
         return nameIds;
+    }
+
+    public static String getConfigValueBySide(Config config, Side side, String key) {
+        return config.getValue((side == Side.SERVER ? "server_" : "client_") + key);
     }
 }
