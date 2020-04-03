@@ -18,7 +18,7 @@ public class Packet {
     }
 
     private void checkPosition(int requiredLength) throws BufferEndReachedException {
-        if (position + requiredLength < buffer.length) {
+        if (position + requiredLength > buffer.length) {
             Util.sshLogger().severe(String.format("Unable to read required bytes from packet; required='%d'", requiredLength));
             throw new BufferEndReachedException("Unable to read required bytes from packet");
         }
