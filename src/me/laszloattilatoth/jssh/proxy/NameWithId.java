@@ -10,6 +10,11 @@ public class NameWithId {
         this.nameId = nameId;
     }
 
+    public NameWithId(int nameId) {
+        this.name = Name.getName(nameId);
+        this.nameId = nameId;
+    }
+
     public String getName() {
         return name;
     }

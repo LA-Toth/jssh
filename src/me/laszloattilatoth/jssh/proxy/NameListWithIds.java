@@ -51,6 +51,10 @@ public class NameListWithIds {
         return nameIdList;
     }
 
+    public int getFirstId() {
+        return nameIdList[0];
+    }
+
     public void log(Logger logger, String nameListName) {
         logger.info(()->String.format(
                 "Name list '%s': effective_list='%s', complete_list='%s', removed_list='%s'",

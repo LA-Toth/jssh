@@ -7,6 +7,8 @@ import me.laszloattilatoth.jssh.proxy.*;
 
 import java.io.*;
 import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -27,6 +29,8 @@ public abstract class TransportLayer {
     private int macLength = 0;
     private PacketHandler[] packetHandlers = new PacketHandler[256];
     private String[] packetTypeNames = new String[256];
+
+    private List<Packet> replayPackets = new ArrayList<>();
 
     public TransportLayer(SshProxy proxy, InputStream is, OutputStream os, Side side) {
         this.proxy = new WeakReference<>(proxy);
@@ -145,7 +149,11 @@ public abstract class TransportLayer {
         byte packetType = packet.getType();
         logger.info(() -> String.format("Processing packet; type='%d', hex_type='%x', type_name='%s', length='%d'",
                 packetType, packetType, packetTypeNames[packetType], packet.getLength()));
-        packetHandlers[packetType].handle(packet);
+
+        if (kex.getState() == KeyExchange.State.WAIT_FOR_OTHER_KEXINIT && packetType != Constant.SSH_MSG_KEXINIT)
+            storePacket(packet);
+        else
+            packetHandlers[packetType].handle(packet);
     }
 
     /**
@@ -194,5 +202,10 @@ public abstract class TransportLayer {
 
     private void handleNotImplementedPacket(Packet packet) {
         // TODO: what to do if a packet is not handled
+    }
+
+    private void storePacket(Packet packet) {
+        logger.info(() -> "Waiting for SSH_MSG_KEXINIT from other side, storing packet;");
+        replayPackets.add(packet);
     }
 }
