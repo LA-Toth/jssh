@@ -5,10 +5,10 @@ import java.util.Map;
 
 public class Config {
 
-    private InetAddress host;
-    private int port;
-    private int threads;
-    private Map<String, String> configMap = Map.of(
+    private final InetAddress host;
+    private final int port;
+    private final int threads;
+    private final Map<String, String> configMap = Map.of(
             "client_kex_algorithms", "diffie-hellman-group-exchange-sha256,diffie-hellman-group-exchange-sha1,diffie-hellman-group14-sha1,diffie-hellman-group1-sha1",
             "client_encryption_algorithms", "aes128-ctr,aes192-ctr,aes256-ctr",
             "client_mac_algorithms", "hmac-sha2-256,hmac-sha2-512,hmac-sha1",

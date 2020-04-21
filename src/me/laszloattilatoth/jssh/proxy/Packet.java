@@ -11,7 +11,7 @@ import java.util.logging.Logger;
  * Represents an SSH packet
  */
 public class Packet {
-    private byte[] buffer;
+    private final byte[] buffer;
     private int position = 0;
 
     public Packet(byte[] bytes) {

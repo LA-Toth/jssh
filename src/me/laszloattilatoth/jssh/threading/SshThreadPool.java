@@ -9,9 +9,9 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class SshThreadPool {
-    private int maxThreads;
-    private List<Thread> threads = new ArrayList<>();
-    private List<Thread> finishedThreads = new ArrayList<>();
+    private final int maxThreads;
+    private final List<Thread> threads = new ArrayList<>();
+    private final List<Thread> finishedThreads = new ArrayList<>();
 
     public SshThreadPool(int maxThreads) {
         this.maxThreads = maxThreads;
@@ -57,9 +57,9 @@ public class SshThreadPool {
     }
 
     public static class SshThreadPoolThread extends Thread {
-        private SshThreadPool pool;
-        private SshThread sshThread;
-        private Logger logger;
+        private final SshThreadPool pool;
+        private final SshThread sshThread;
+        private final Logger logger;
 
         private SshThreadPoolThread(SshThreadPool p, SshThread thread) {
             super(thread.getName());

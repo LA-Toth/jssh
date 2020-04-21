@@ -5,10 +5,10 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 public class NameListWithIds {
-    private String originalNameList;
-    private String nameList;
-    private String[] removedNameList;
-    private int[] nameIdList;
+    private final String originalNameList;
+    private final String nameList;
+    private final String[] removedNameList;
+    private final int[] nameIdList;
 
     private NameListWithIds(String nameList) {
         this.originalNameList = nameList;
@@ -55,13 +55,21 @@ public class NameListWithIds {
         return nameIdList[0];
     }
 
+    public NameWithId getFirstNameWithId() {
+        return new NameWithId(getFirstId());
+    }
+
     public void log(Logger logger, String nameListName) {
-        logger.info(()->String.format(
+        logger.info(() -> String.format(
                 "Name list '%s': effective_list='%s', complete_list='%s', removed_list='%s'",
                 nameListName,
                 nameList,
                 originalNameList,
                 String.join(",", removedNameList)
-                ));
+        ));
+    }
+
+    public boolean firstEqual(NameListWithIds other) {
+        return getFirstId() == other.getFirstId();
     }
 }

@@ -13,7 +13,7 @@ import java.net.Socket;
 import java.util.logging.Level;
 
 public class SshProxy extends SshThread {
-    private TransportLayer transportLayer;
+    private final TransportLayer transportLayer;
 
     public SshProxy(Config config, Socket s, InputStream is, OutputStream os) {
         super(config, s, is, os);

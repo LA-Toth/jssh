@@ -16,12 +16,12 @@ import java.util.stream.Stream;
 public class KeyExchange {
     private final WeakReference<TransportLayer> transportLayer;
     private final Side side;
-    private Config config;
-    private Logger logger;
-    private NameListWithIds kexAlgorithms;
-    private NameListWithIds encryptionAlgorithms;
-    private NameListWithIds macAlgorithms;
-    private NameListWithIds compressionAlgorithms;
+    private final Config config;
+    private final Logger logger;
+    private final NameListWithIds kexAlgorithms;
+    private final NameListWithIds encryptionAlgorithms;
+    private final NameListWithIds macAlgorithms;
+    private final NameListWithIds compressionAlgorithms;
     private NameListWithIds peerKexAlgorithms;
     private NameListWithIds peerC2SEncryptionAlgorithms;
     private NameListWithIds peerS2CEncryptionAlgorithms;
@@ -29,7 +29,8 @@ public class KeyExchange {
     private NameListWithIds peerS2CMacAlgorithms;
     private NameListWithIds peerC2SCompressionAlgorithms;
     private NameListWithIds peerS2CCompressionAlgorithms;
-    private State state = State.DEFAULT;
+    private final State state = State.DEFAULT;
+    private NegotiatedAlgorithms negotiatedAlgorithms;
 
     public KeyExchange(TransportLayer transportLayer) {
         this.transportLayer = new WeakReference<>(transportLayer);
@@ -82,32 +83,43 @@ public class KeyExchange {
             logger.severe("Peer KEXINIT packet contains at least algorithm list which is empty or contains only unknown algos;");
             throw new KexException("Unable to process SSH_MSG_KEXINIT, no known algorithms;");
         }
+
+        negotiatedAlgorithms = guess();
+        logger.fine("The negotiated algos is " + (negotiatedAlgorithms != null ? "NOT " : "") + "NULL");
     }
 
     /**
      * Guesses the algorithms for the next automatically sent packet
      */
     private NegotiatedAlgorithms guess() {
-        NegotiatedAlgorithms result = new NegotiatedAlgorithms();
-        if (peerKexAlgorithms.getFirstId() == kexAlgorithms.getFirstId())
-            result.kexAlgorithm = new NameWithId(peerKexAlgorithms.getFirstId());
-        else
+        if (!(peerKexAlgorithms.firstEqual(kexAlgorithms) &&
+                peerC2SEncryptionAlgorithms.firstEqual(encryptionAlgorithms) &&
+                peerS2CEncryptionAlgorithms.firstEqual(encryptionAlgorithms) &&
+                peerC2SMacAlgorithms.firstEqual(macAlgorithms) &&
+                peerS2CMacAlgorithms.firstEqual(macAlgorithms) &&
+                peerC2SCompressionAlgorithms.firstEqual(compressionAlgorithms) &&
+                peerS2CCompressionAlgorithms.firstEqual(compressionAlgorithms))
+        )
             return null;
+
+        NegotiatedAlgorithms result = new NegotiatedAlgorithms();
+
+        result.kexAlgorithm = kexAlgorithms.getFirstNameWithId();
+        result.encryptionAlgorithm = encryptionAlgorithms.getFirstNameWithId();
+        result.macAlgorithm = macAlgorithms.getFirstNameWithId();
+        result.compressionAlgorithm = compressionAlgorithms.getFirstNameWithId();
 
         return result;
     }
 
     private static class NegotiatedAlgorithms {
         public NameWithId kexAlgorithm;
-        public NameWithId C2SEncryptionAlgorithms;
-        public NameWithId S2CEncryptionAlgorithms;
-        public NameWithId C2SMacAlgorithms;
-        public NameWithId S2CMacAlgorithms;
-        public NameWithId C2SCompressionAlgorithms;
-        public NameWithId S2CCompressionAlgorithms;
+        public NameWithId encryptionAlgorithm;
+        public NameWithId macAlgorithm;
+        public NameWithId compressionAlgorithm;
     }
 
-    public static enum State {
+    public enum State {
         DEFAULT,
         WAIT_FOR_OTHER_KEXINIT, // This side already sent a KEXINIT - as per RFC 2453 7.1
         AFTER_KEX,

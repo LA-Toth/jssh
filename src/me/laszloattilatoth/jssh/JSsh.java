@@ -10,8 +10,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class JSsh {
-    private Config config;
-    private Logger logger;
+    private final Config config;
+    private final Logger logger;
 
     JSsh(Config config) {
         this.config = config;

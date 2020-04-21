@@ -26,11 +26,11 @@ public abstract class TransportLayer {
     private final KeyExchange kex;
     protected DataInputStream dataInputStream = null;
     protected DataOutputStream dataOutputStream = null;
-    private int macLength = 0;
-    private PacketHandler[] packetHandlers = new PacketHandler[256];
-    private String[] packetTypeNames = new String[256];
+    private final int macLength = 0;
+    private final PacketHandler[] packetHandlers = new PacketHandler[256];
+    private final String[] packetTypeNames = new String[256];
 
-    private List<Packet> replayPackets = new ArrayList<>();
+    private final List<Packet> replayPackets = new ArrayList<>();
 
     public TransportLayer(SshProxy proxy, InputStream is, OutputStream os, Side side) {
         this.proxy = new WeakReference<>(proxy);
