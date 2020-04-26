@@ -2,10 +2,7 @@ package me.laszloattilatoth.jssh.kex;
 
 import me.laszloattilatoth.jssh.Config;
 import me.laszloattilatoth.jssh.Util;
-import me.laszloattilatoth.jssh.proxy.NameListWithIds;
-import me.laszloattilatoth.jssh.proxy.NameWithId;
-import me.laszloattilatoth.jssh.proxy.Packet;
-import me.laszloattilatoth.jssh.proxy.Side;
+import me.laszloattilatoth.jssh.proxy.*;
 import me.laszloattilatoth.jssh.transportlayer.TransportLayer;
 import me.laszloattilatoth.jssh.transportlayer.TransportLayerException;
 
@@ -19,17 +16,19 @@ public class KeyExchange {
     private final Config config;
     private final Logger logger;
     private final NameListWithIds kexAlgorithms;
+    private final NameListWithIds hostKeyAlgorithms;
     private final NameListWithIds encryptionAlgorithms;
     private final NameListWithIds macAlgorithms;
     private final NameListWithIds compressionAlgorithms;
     private NameListWithIds peerKexAlgorithms;
+    private NameListWithIds peerHostKeyAlgorithms;
     private NameListWithIds peerC2SEncryptionAlgorithms;
     private NameListWithIds peerS2CEncryptionAlgorithms;
     private NameListWithIds peerC2SMacAlgorithms;
     private NameListWithIds peerS2CMacAlgorithms;
     private NameListWithIds peerC2SCompressionAlgorithms;
     private NameListWithIds peerS2CCompressionAlgorithms;
-    private final State state = State.DEFAULT;
+    private State state = State.DEFAULT;
     private NegotiatedAlgorithms negotiatedAlgorithms;
 
     public KeyExchange(TransportLayer transportLayer) {
@@ -39,9 +38,17 @@ public class KeyExchange {
         this.logger = transportLayer.getLogger();
 
         this.kexAlgorithms = NameListWithIds.create(Util.getConfigValueBySide(this.config, this.side, "kex_algorithms"));
+        this.hostKeyAlgorithms = NameListWithIds.create(Util.getConfigValueBySide(this.config, this.side, "hostkey_algorithms"));
         this.encryptionAlgorithms = NameListWithIds.create(Util.getConfigValueBySide(this.config, this.side, "encryption_algorithms"));
         this.macAlgorithms = NameListWithIds.create(Util.getConfigValueBySide(this.config, this.side, "mac_algorithms"));
         this.compressionAlgorithms = NameListWithIds.create(Util.getConfigValueBySide(this.config, this.side, "compression_algorithms"));
+
+        /*
+        this.kexAlgorithms.filter();
+        this.encryptionAlgorithms.filter([Name.SSH_NAME_NONE]);
+        this.macAlgorithms.filter([Name.SSH_NAME_NONE]);
+        this.compressionAlgorithms.filter([Name.SSH_NAME_NONE]);
+         */
     }
 
     public State getState() {
@@ -51,12 +58,11 @@ public class KeyExchange {
     /// RFC 4253 7.1.  Algorithm Negotiation (SSH_MSG_KEXINIT)
     public void processMsgKexInit(Packet packet) throws TransportLayerException {
         boolean follows;
-        byte[] cookie;
-
         try {
             packet.readByte();
-            cookie = packet.readBytes(16);
+            packet.readBytes(16);
             peerKexAlgorithms = NameListWithIds.createAndLog(packet.readString(), logger, "KEX algos");
+            peerHostKeyAlgorithms = NameListWithIds.createAndLog(packet.readString(), logger, "Host Key algos");
             peerC2SEncryptionAlgorithms = NameListWithIds.createAndLog(packet.readString(), logger, "C2S Encryption algos");
             peerS2CEncryptionAlgorithms = NameListWithIds.createAndLog(packet.readString(), logger, "S2C Encryption algos");
             peerC2SMacAlgorithms = NameListWithIds.createAndLog(packet.readString(), logger, "C2S Mac algos");
@@ -73,6 +79,7 @@ public class KeyExchange {
         }
 
         if (Stream.of(peerKexAlgorithms,
+                peerHostKeyAlgorithms,
                 peerC2SEncryptionAlgorithms,
                 peerS2CEncryptionAlgorithms,
                 peerC2SMacAlgorithms,
@@ -86,6 +93,16 @@ public class KeyExchange {
 
         negotiatedAlgorithms = guess();
         logger.fine("The negotiated algos is " + (negotiatedAlgorithms != null ? "NOT " : "") + "NULL");
+
+        if (negotiatedAlgorithms == null) {
+            if (follows)
+                state = State.DROP_GUESSED_PACKET;
+            negotiatedAlgorithms = calculateAlgorithms();
+        }
+
+        if (negotiatedAlgorithms == null) {
+            throw new KexException("No matching algo");
+        }
     }
 
     /**
@@ -93,6 +110,7 @@ public class KeyExchange {
      */
     private NegotiatedAlgorithms guess() {
         if (!(peerKexAlgorithms.firstEqual(kexAlgorithms) &&
+                peerHostKeyAlgorithms.firstEqual(hostKeyAlgorithms) &&
                 peerC2SEncryptionAlgorithms.firstEqual(encryptionAlgorithms) &&
                 peerS2CEncryptionAlgorithms.firstEqual(encryptionAlgorithms) &&
                 peerC2SMacAlgorithms.firstEqual(macAlgorithms) &&
@@ -105,23 +123,68 @@ public class KeyExchange {
         NegotiatedAlgorithms result = new NegotiatedAlgorithms();
 
         result.kexAlgorithm = kexAlgorithms.getFirstNameWithId();
-        result.encryptionAlgorithm = encryptionAlgorithms.getFirstNameWithId();
-        result.macAlgorithm = macAlgorithms.getFirstNameWithId();
-        result.compressionAlgorithm = compressionAlgorithms.getFirstNameWithId();
+        result.hostKeyAlgorithm = hostKeyAlgorithms.getFirstNameWithId();
+        result.sentEncryptionAlgorithm = encryptionAlgorithms.getFirstNameWithId();
+        result.receivedEncryptionAlgorithm = encryptionAlgorithms.getFirstNameWithId();
+        result.sentMacAlgorithm = macAlgorithms.getFirstNameWithId();
+        result.receivedMacAlgorithm = macAlgorithms.getFirstNameWithId();
+        result.sentCompressionAlgorithm = compressionAlgorithms.getFirstNameWithId();
+        result.receivedCompressionAlgorithm = compressionAlgorithms.getFirstNameWithId();
 
         return result;
     }
 
+    private NegotiatedAlgorithms calculateAlgorithms() {
+
+        NegotiatedAlgorithms result = new NegotiatedAlgorithms();
+
+        result.kexAlgorithm = kexAlgorithms.getFirstMatchingNameWithId(peerKexAlgorithms);
+        result.hostKeyAlgorithm = hostKeyAlgorithms.getFirstMatchingNameWithId(peerHostKeyAlgorithms);
+        result.sentEncryptionAlgorithm = sentNameWithId(encryptionAlgorithms, peerC2SEncryptionAlgorithms, peerS2CEncryptionAlgorithms);
+        result.receivedEncryptionAlgorithm = receivedNameWithId(encryptionAlgorithms, peerC2SEncryptionAlgorithms, peerS2CEncryptionAlgorithms);
+        result.sentMacAlgorithm = sentNameWithId(macAlgorithms, peerC2SMacAlgorithms, peerS2CMacAlgorithms);
+        result.receivedMacAlgorithm = receivedNameWithId(macAlgorithms, peerC2SMacAlgorithms, peerS2CMacAlgorithms);
+        result.sentCompressionAlgorithm = sentNameWithId(compressionAlgorithms, peerC2SCompressionAlgorithms, peerS2CCompressionAlgorithms);
+        result.receivedCompressionAlgorithm = receivedNameWithId(compressionAlgorithms, peerC2SCompressionAlgorithms, peerS2CCompressionAlgorithms);
+
+        return result.valid() ? result : null;
+    }
+
+    private NameWithId sentNameWithId(NameListWithIds own, NameListWithIds c2s, NameListWithIds s2c) {
+        return own.getFirstMatchingNameWithId(side == Constant.CLIENT_SIDE ? s2c : c2s);
+    }
+
+    private NameWithId receivedNameWithId(NameListWithIds own, NameListWithIds c2s, NameListWithIds s2c) {
+        return own.getFirstMatchingNameWithId(side == Constant.SERVER_SIDE ? s2c : c2s);
+    }
+
     private static class NegotiatedAlgorithms {
         public NameWithId kexAlgorithm;
-        public NameWithId encryptionAlgorithm;
-        public NameWithId macAlgorithm;
-        public NameWithId compressionAlgorithm;
+        public NameWithId hostKeyAlgorithm;
+        public NameWithId sentEncryptionAlgorithm;
+        public NameWithId receivedEncryptionAlgorithm;
+        public NameWithId sentMacAlgorithm;
+        public NameWithId receivedMacAlgorithm;
+        public NameWithId sentCompressionAlgorithm;
+        public NameWithId receivedCompressionAlgorithm;
+
+        public boolean valid() {
+            return (kexAlgorithm.valid(false)
+                    && hostKeyAlgorithm.valid(false)
+                    && sentEncryptionAlgorithm.valid(false)
+                    && receivedEncryptionAlgorithm.valid(false)
+                    && sentMacAlgorithm.valid(false)
+                    && receivedMacAlgorithm.valid(false)
+                    && sentCompressionAlgorithm.valid(true)
+                    && receivedCompressionAlgorithm.valid(true)
+            );
+        }
     }
 
     public enum State {
         DEFAULT,
         WAIT_FOR_OTHER_KEXINIT, // This side already sent a KEXINIT - as per RFC 2453 7.1
+        DROP_GUESSED_PACKET,    // the next packet should be dropped
         AFTER_KEX,
         KEX,
     }

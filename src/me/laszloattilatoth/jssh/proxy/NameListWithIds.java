@@ -1,6 +1,9 @@
 package me.laszloattilatoth.jssh.proxy;
 
+import me.laszloattilatoth.jssh.Util;
+
 import java.util.Arrays;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -29,6 +32,10 @@ public class NameListWithIds {
         return new NameListWithIds(nameList);
     }
 
+    public void filter(int[] nameIdList) {
+
+    }
+
     public static NameListWithIds createAndLog(String nameList, Logger logger, String name) {
         NameListWithIds n = new NameListWithIds(nameList);
         n.log(logger, name);
@@ -53,6 +60,22 @@ public class NameListWithIds {
 
     public int getFirstId() {
         return nameIdList[0];
+    }
+
+    public int getFirstMatchingId(NameListWithIds other) {
+        Util.sshLogger().log(Level.FINEST, () -> String.format("Find matching SSH name; this='%s', other='%s'", nameList, other.nameList));
+        for (int nameId : nameIdList) {
+            for (int otherNameId : other.nameIdList) {
+                if (nameId == otherNameId)
+                    return nameId;
+            }
+        }
+
+        return Name.SSH_NAME_UNKNOWN;
+    }
+
+    public NameWithId getFirstMatchingNameWithId(NameListWithIds other) {
+        return new NameWithId(getFirstMatchingId(other));
     }
 
     public NameWithId getFirstNameWithId() {

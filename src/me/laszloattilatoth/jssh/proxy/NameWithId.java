@@ -22,4 +22,10 @@ public class NameWithId {
     public int getNameId() {
         return nameId;
     }
+
+    public boolean valid(boolean enableNone) {
+        return this.nameId != Name.SSH_NAME_UNKNOWN && (enableNone || this.nameId != Name.SSH_NAME_NONE);
+    }
+
+
 }
