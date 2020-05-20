@@ -11,11 +11,25 @@ import java.util.logging.Logger;
  * Represents an SSH packet
  */
 public class Packet {
-    private final byte[] buffer;
+    public static final int MAX_SIZE = 0x8000000; // as in OpenSSH buffer
+    public static final int INIT_SIZE = 256;
+    public static final int SIZE_INC = 256;
+
+    private byte[] buffer;
     private int position = 0;
+    private int maxSize;
+    private int size;   // size of valid data (buffer may be larger)
 
     public Packet(byte[] bytes) {
         this.buffer = bytes;
+        this.maxSize = this.buffer.length;
+        this.size = this.buffer.length;
+    }
+
+    public Packet() {
+        this.buffer = new byte[INIT_SIZE];
+        this.maxSize = MAX_SIZE;
+        this.size = 0;
     }
 
     private void checkPosition(int requiredLength) throws BufferEndReachedException {
@@ -23,6 +37,22 @@ public class Packet {
             Util.sshLogger().severe(String.format("Unable to read required bytes from packet; required='%d'", requiredLength));
             throw new BufferEndReachedException("Unable to read required bytes from packet");
         }
+    }
+
+    private void preserve(int requiredLength) throws BufferEndReachedException {
+        if (requiredLength > maxSize || maxSize - requiredLength < maxSize - position) {
+            Util.sshLogger().severe(String.format("Unable to allocate required bytes into packet; required='%d'", requiredLength));
+            throw new BufferEndReachedException("Unable to allocate bytes in packet");
+        }
+
+        if (size + requiredLength < buffer.length)
+            return;
+
+        int newSize = ((size + requiredLength + SIZE_INC - 1) / SIZE_INC) * SIZE_INC;
+        byte[] newBuffer = new byte[newSize];
+
+        System.arraycopy(buffer, 0, newBuffer, 0, buffer.length);
+        buffer = newBuffer;
     }
 
     public byte getType() {
@@ -137,6 +167,59 @@ public class Packet {
 
     public int[] readNameIdList() throws BufferEndReachedException {
         return Util.getIdListFromNameArrayList(readNameList());
+    }
+
+    public void resetType(byte packetType) {
+        resetPosition();
+        buffer[0] = packetType;
+    }
+
+    private void writeByteUnchecked(byte b) {
+        buffer[position++] = b;
+        size++;
+    }
+
+    public void writeByte(int b) throws BufferEndReachedException {
+        preserve(1);
+        writeByteUnchecked((byte) b);
+    }
+
+    public void writeBoolean(boolean b) throws BufferEndReachedException {
+        writeByte(b ? 1 : 0);
+    }
+
+    public void writeBytes(byte[] b) throws BufferEndReachedException {
+        preserve(b.length);
+        System.arraycopy(b, 0, buffer, position, b.length);
+        position += b.length;
+        size += b.length;
+    }
+
+    public void writeUint32(long l) throws BufferEndReachedException {
+        preserve(4);
+        writeByteUnchecked((byte) (l >> 24));
+        writeByteUnchecked((byte) (l >> 16));
+        writeByteUnchecked((byte) (l >> 8));
+        writeByteUnchecked((byte) l);
+    }
+
+    public void writeUint64(long l) throws BufferEndReachedException {
+        preserve(8);
+        writeByteUnchecked((byte) (l >> 56));
+        writeByteUnchecked((byte) (l >> 48));
+        writeByteUnchecked((byte) (l >> 40));
+        writeByteUnchecked((byte) (l >> 32));
+        writeByteUnchecked((byte) (l >> 24));
+        writeByteUnchecked((byte) (l >> 16));
+        writeByteUnchecked((byte) (l >> 8));
+        writeByteUnchecked((byte) l);
+    }
+
+    public void writeString(String s) throws BufferEndReachedException {
+        byte[] bytes = s.getBytes();
+        preserve(4 + bytes.length);
+        writeUint32(bytes.length);
+        writeBytes(bytes);
     }
 
     public static final class BufferEndReachedException extends Exception {
