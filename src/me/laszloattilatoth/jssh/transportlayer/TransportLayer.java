@@ -135,6 +135,7 @@ public abstract class TransportLayer {
 
     private void exchangeKeys() throws TransportLayerException {
         try {
+            kex.sendInitialMsgKexInit();
             readAndHandlePacket();
         } catch (IOException e) {
             logger.severe("Unable to read version string;");

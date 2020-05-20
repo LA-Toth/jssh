@@ -8,7 +8,6 @@ import me.laszloattilatoth.jssh.transportlayer.TransportLayerException;
 
 import java.lang.ref.WeakReference;
 import java.util.logging.Logger;
-import java.util.stream.Stream;
 
 public class KeyExchange {
     private final WeakReference<TransportLayer> transportLayer;
@@ -20,15 +19,7 @@ public class KeyExchange {
     private final NameListWithIds encryptionAlgorithms;
     private final NameListWithIds macAlgorithms;
     private final NameListWithIds compressionAlgorithms;
-    private NameListWithIds peerKexAlgorithms;
-    private NameListWithIds peerHostKeyAlgorithms;
-    private NameListWithIds peerC2SEncryptionAlgorithms;
-    private NameListWithIds peerS2CEncryptionAlgorithms;
-    private NameListWithIds peerC2SMacAlgorithms;
-    private NameListWithIds peerS2CMacAlgorithms;
-    private NameListWithIds peerC2SCompressionAlgorithms;
-    private NameListWithIds peerS2CCompressionAlgorithms;
-    private State state = State.DEFAULT;
+    private State state = State.INITIAL;
     private NegotiatedAlgorithms negotiatedAlgorithms;
 
     public KeyExchange(TransportLayer transportLayer) {
@@ -55,38 +46,39 @@ public class KeyExchange {
         return state;
     }
 
+    public void sendInitialMsgKexInit() throws KexException {
+        KexInitPacket initPacket = new KexInitPacket();
+        initPacket.setAlgos(KexInitPacket.ENTRY_KEX_ALGOS, kexAlgorithms.getNameList());
+        initPacket.setAlgos(KexInitPacket.ENTRY_SERVER_HOST_KEY_ALG, hostKeyAlgorithms.getNameList());
+        initPacket.setAlgos(KexInitPacket.ENTRY_ENC_ALGOS_C2S, encryptionAlgorithms.getNameList());
+        initPacket.setAlgos(KexInitPacket.ENTRY_ENC_ALGOS_S2C, encryptionAlgorithms.getNameList());
+        initPacket.setAlgos(KexInitPacket.ENTRY_MAC_ALGOS_C2S, macAlgorithms.getNameList());
+        initPacket.setAlgos(KexInitPacket.ENTRY_MAC_ALGOS_S2C, macAlgorithms.getNameList());
+        initPacket.setAlgos(KexInitPacket.ENTRY_COMP_ALGOS_C2S, compressionAlgorithms.getNameList());
+        initPacket.setAlgos(KexInitPacket.ENTRY_COMP_ALGOS_S2C, compressionAlgorithms.getNameList());
+        initPacket.setAlgos(KexInitPacket.ENTRY_LANG_C2S, "");
+        initPacket.setAlgos(KexInitPacket.ENTRY_LANG_S2C, "");
+
+        Packet packet = new Packet();
+        try {
+            initPacket.writeToPacket(packet);
+        } catch (Packet.BufferEndReachedException e) {
+            logger.severe(() -> String.format("Unable to send SSH_MSG_KEXINIT; error='%s'", e.getMessage()));
+            throw new KexException(e.getMessage());
+        }
+    }
+
     /// RFC 4253 7.1.  Algorithm Negotiation (SSH_MSG_KEXINIT)
     public void processMsgKexInit(Packet packet) throws TransportLayerException {
-        boolean follows;
+        KexInitPacket initPacket = new KexInitPacket();
         try {
-            packet.readByte();
-            packet.readBytes(16);
-            peerKexAlgorithms = NameListWithIds.createAndLog(packet.readString(), logger, "KEX algos");
-            peerHostKeyAlgorithms = NameListWithIds.createAndLog(packet.readString(), logger, "Host Key algos");
-            peerC2SEncryptionAlgorithms = NameListWithIds.createAndLog(packet.readString(), logger, "C2S Encryption algos");
-            peerS2CEncryptionAlgorithms = NameListWithIds.createAndLog(packet.readString(), logger, "S2C Encryption algos");
-            peerC2SMacAlgorithms = NameListWithIds.createAndLog(packet.readString(), logger, "C2S Mac algos");
-            peerS2CMacAlgorithms = NameListWithIds.createAndLog(packet.readString(), logger, "S2C Mac algos");
-            peerC2SCompressionAlgorithms = NameListWithIds.createAndLog(packet.readString(), logger, "C2S Compression algos");
-            peerS2CCompressionAlgorithms = NameListWithIds.createAndLog(packet.readString(), logger, "S2C Compression algos");
-            packet.readString();
-            packet.readString();
-            follows = packet.readBoolean();
-            logger.info(String.format("KEXINIT packet; follows='%b'", follows));
+            initPacket.readFromPacket(packet);
         } catch (Packet.BufferEndReachedException e) {
             logger.severe(() -> String.format("Unable to parse SSH_MSG_KEXINIT; error='%s'", e.getMessage()));
             throw new KexException(e.getMessage());
         }
 
-        if (Stream.of(peerKexAlgorithms,
-                peerHostKeyAlgorithms,
-                peerC2SEncryptionAlgorithms,
-                peerS2CEncryptionAlgorithms,
-                peerC2SMacAlgorithms,
-                peerS2CMacAlgorithms,
-                peerC2SCompressionAlgorithms,
-                peerS2CCompressionAlgorithms)
-                .anyMatch(x -> x.getNameIdList().length == 0)) {
+        if (!initPacket.valid()) {
             logger.severe("Peer KEXINIT packet contains at least algorithm list which is empty or contains only unknown algos;");
             throw new KexException("Unable to process SSH_MSG_KEXINIT, no known algorithms;");
         }
@@ -95,7 +87,7 @@ public class KeyExchange {
         logger.fine("The negotiated algos is " + (negotiatedAlgorithms != null ? "NOT " : "") + "NULL");
 
         if (negotiatedAlgorithms == null) {
-            if (follows)
+            if (initPacket.follows)
                 state = State.DROP_GUESSED_PACKET;
             negotiatedAlgorithms = calculateAlgorithms();
         }
@@ -182,7 +174,8 @@ public class KeyExchange {
     }
 
     public enum State {
-        DEFAULT,
+        INITIAL,
+        INITIAL_KEX_INIT_SENT,
         WAIT_FOR_OTHER_KEXINIT, // This side already sent a KEXINIT - as per RFC 2453 7.1
         DROP_GUESSED_PACKET,    // the next packet should be dropped
         AFTER_KEX,
