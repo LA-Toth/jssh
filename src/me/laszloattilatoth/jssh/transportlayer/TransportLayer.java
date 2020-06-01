@@ -149,7 +149,7 @@ public abstract class TransportLayer {
         packet.dump();
         byte packetType = packet.getType();
         logger.info(() -> String.format("Processing packet; type='%d', hex_type='%x', type_name='%s', length='%d'",
-                packetType, packetType, packetTypeNames[packetType], packet.getLength()));
+                packetType, packetType, packetTypeNames[packetType], packet.getSize()));
 
         if (kex.getState() == KeyExchange.State.WAIT_FOR_OTHER_KEXINIT && packetType != Constant.SSH_MSG_KEXINIT)
             storePacket(packet);
@@ -177,6 +177,25 @@ public abstract class TransportLayer {
             dataInputStream.readNBytes(macLength);
 
         return new Packet(data);
+    }
+
+    /**
+     * Write packet as RFC 4253, 6.  Binary Packet Protocol
+     */
+    public void writePacket(Packet packet) throws IOException {
+        logger.info("Writing packet");
+        packet.dump();
+        int payloadSize = packet.getBufferEnd();
+        int withHeaders = payloadSize + 1 + 4;
+        int paddingLength  = (withHeaders+7)/8 * 8 - withHeaders;
+
+        dataOutputStream.writeInt(payloadSize + paddingLength + 1);
+        dataOutputStream.writeByte(paddingLength);
+        dataOutputStream.write(packet.getBufferCopy(), 0, payloadSize);
+        // FIXME: secure padding
+        for (int i =0; i!= paddingLength;++i)
+            dataOutputStream.writeByte(0);
+        // FIXME: mac
     }
 
     private void processMsgDisconnect(Packet packet) throws TransportLayerException {

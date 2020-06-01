@@ -20,16 +20,16 @@ public class Util {
         return ((SshThreadPool.SshThreadPoolThread) Thread.currentThread()).logger();
     }
 
-    public static void logBytes(Logger logger, byte[] bytes) {
+    public static void logBytes(Logger logger, byte[] bytes, int size) {
         if (!logger.isLoggable(Level.FINE))
             return;
 
         int offset = 0;
-        while (offset < bytes.length) {
+        while (offset < size) {
             StringBuilder builder = new StringBuilder();
             builder.append(String.format("data line 0x%04x: ", offset));
             for (int i = 0; i != 16; ++i) {
-                if (offset + i < bytes.length)
+                if (offset + i < size)
                     builder.append(String.format("%02x ", bytes[offset + i]));
                 else
                     builder.append("   ");
@@ -38,7 +38,7 @@ public class Util {
             builder.append(" ");
             for (int i = 0; i != 16; ++i) {
                 int idx = offset + i;
-                if (idx < bytes.length) {
+                if (idx < size) {
                     if (bytes[idx] >= 32 && bytes[idx] <= 126)
                         builder.append(String.format("%c", bytes[idx]));
                     else
@@ -50,6 +50,10 @@ public class Util {
             logger.fine(builder::toString);
             offset += 16;
         }
+    }
+
+    public static void logBytes(Logger logger, byte[] bytes) {
+        logBytes(logger, bytes, bytes.length);
     }
 
     public static void logBytes(byte[] bytes) {

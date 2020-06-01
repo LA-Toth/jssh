@@ -6,7 +6,9 @@ import me.laszloattilatoth.jssh.proxy.*;
 import me.laszloattilatoth.jssh.transportlayer.TransportLayer;
 import me.laszloattilatoth.jssh.transportlayer.TransportLayerException;
 
+import java.io.IOException;
 import java.lang.ref.WeakReference;
+import java.util.Objects;
 import java.util.logging.Logger;
 
 public class KeyExchange {
@@ -20,7 +22,10 @@ public class KeyExchange {
     private final NameListWithIds macAlgorithms;
     private final NameListWithIds compressionAlgorithms;
     private State state = State.INITIAL;
-    private NegotiatedAlgorithms negotiatedAlgorithms;
+    private NameListWithIds[] ownAlgos;
+    private NameListWithIds[] peerAlgos;
+
+    private NameWithId name;
 
     public KeyExchange(TransportLayer transportLayer) {
         this.transportLayer = new WeakReference<>(transportLayer);
@@ -46,6 +51,14 @@ public class KeyExchange {
         return state;
     }
 
+    public boolean isClientSide() {
+        return side == Constant.CLIENT_SIDE;
+    }
+
+    public boolean isServerSide() {
+        return side == Constant.SERVER_SIDE;
+    }
+
     public void sendInitialMsgKexInit() throws KexException {
         KexInitPacket initPacket = new KexInitPacket();
         initPacket.setAlgos(KexInitPacket.ENTRY_KEX_ALGOS, kexAlgorithms.getNameList());
@@ -66,10 +79,19 @@ public class KeyExchange {
             logger.severe(() -> String.format("Unable to send SSH_MSG_KEXINIT; error='%s'", e.getMessage()));
             throw new KexException(e.getMessage());
         }
+
+        try {
+            Objects.requireNonNull(transportLayer.get()).writePacket(packet);
+        } catch (IOException e) {
+            logger.severe(() -> String.format("Unable to send SSH_MSG_KEXINIT; error='%s'", e.getMessage()));
+            throw new KexException(e.getMessage());
+        }
     }
 
     /// RFC 4253 7.1.  Algorithm Negotiation (SSH_MSG_KEXINIT)
     public void processMsgKexInit(Packet packet) throws TransportLayerException {
+        Objects.requireNonNull(transportLayer.get()).unregisterHandler(Constant.SSH_MSG_KEXINIT);
+
         KexInitPacket initPacket = new KexInitPacket();
         try {
             initPacket.readFromPacket(packet);
@@ -83,94 +105,27 @@ public class KeyExchange {
             throw new KexException("Unable to process SSH_MSG_KEXINIT, no known algorithms;");
         }
 
-        negotiatedAlgorithms = guess();
-        logger.fine("The negotiated algos is " + (negotiatedAlgorithms != null ? "NOT " : "") + "NULL");
+        // TODO: rekeying -send our own kex packet
+        // TODO: not always save peer packet
+        // peerInitPacket = initPacket;
+    }
 
-        if (negotiatedAlgorithms == null) {
-            if (initPacket.follows)
-                state = State.DROP_GUESSED_PACKET;
-            negotiatedAlgorithms = calculateAlgorithms();
+    private void calculateAlgos() throws KexException {
+        NameListWithIds[] client = isClientSide() ? peerAlgos : ownAlgos;
+        NameListWithIds[] server = isServerSide() ? ownAlgos : peerAlgos;
+
+        calculateKex(client[KexInitPacket.ENTRY_KEX_ALGOS], server[KexInitPacket.ENTRY_KEX_ALGOS]);
+    }
+
+    private void calculateKex(NameListWithIds client, NameListWithIds server) throws KexException {
+        int nameId = client.getFirstMatchingId(server);
+        if (nameId == Name.SSH_NAME_UNKNOWN) {
+            throw new KexException("TODO"); // TODO: xxx
         }
+        name = new NameWithId(nameId);
+        logger.info(name.getName());
+        //kexalg = kex_alg_by_name(name);
 
-        if (negotiatedAlgorithms == null) {
-            throw new KexException("No matching algo");
-        }
-    }
-
-    /**
-     * Guesses the algorithms for the next automatically sent packet
-     */
-    private NegotiatedAlgorithms guess() {
-        if (!(peerKexAlgorithms.firstEqual(kexAlgorithms) &&
-                peerHostKeyAlgorithms.firstEqual(hostKeyAlgorithms) &&
-                peerC2SEncryptionAlgorithms.firstEqual(encryptionAlgorithms) &&
-                peerS2CEncryptionAlgorithms.firstEqual(encryptionAlgorithms) &&
-                peerC2SMacAlgorithms.firstEqual(macAlgorithms) &&
-                peerS2CMacAlgorithms.firstEqual(macAlgorithms) &&
-                peerC2SCompressionAlgorithms.firstEqual(compressionAlgorithms) &&
-                peerS2CCompressionAlgorithms.firstEqual(compressionAlgorithms))
-        )
-            return null;
-
-        NegotiatedAlgorithms result = new NegotiatedAlgorithms();
-
-        result.kexAlgorithm = kexAlgorithms.getFirstNameWithId();
-        result.hostKeyAlgorithm = hostKeyAlgorithms.getFirstNameWithId();
-        result.sentEncryptionAlgorithm = encryptionAlgorithms.getFirstNameWithId();
-        result.receivedEncryptionAlgorithm = encryptionAlgorithms.getFirstNameWithId();
-        result.sentMacAlgorithm = macAlgorithms.getFirstNameWithId();
-        result.receivedMacAlgorithm = macAlgorithms.getFirstNameWithId();
-        result.sentCompressionAlgorithm = compressionAlgorithms.getFirstNameWithId();
-        result.receivedCompressionAlgorithm = compressionAlgorithms.getFirstNameWithId();
-
-        return result;
-    }
-
-    private NegotiatedAlgorithms calculateAlgorithms() {
-
-        NegotiatedAlgorithms result = new NegotiatedAlgorithms();
-
-        result.kexAlgorithm = kexAlgorithms.getFirstMatchingNameWithId(peerKexAlgorithms);
-        result.hostKeyAlgorithm = hostKeyAlgorithms.getFirstMatchingNameWithId(peerHostKeyAlgorithms);
-        result.sentEncryptionAlgorithm = sentNameWithId(encryptionAlgorithms, peerC2SEncryptionAlgorithms, peerS2CEncryptionAlgorithms);
-        result.receivedEncryptionAlgorithm = receivedNameWithId(encryptionAlgorithms, peerC2SEncryptionAlgorithms, peerS2CEncryptionAlgorithms);
-        result.sentMacAlgorithm = sentNameWithId(macAlgorithms, peerC2SMacAlgorithms, peerS2CMacAlgorithms);
-        result.receivedMacAlgorithm = receivedNameWithId(macAlgorithms, peerC2SMacAlgorithms, peerS2CMacAlgorithms);
-        result.sentCompressionAlgorithm = sentNameWithId(compressionAlgorithms, peerC2SCompressionAlgorithms, peerS2CCompressionAlgorithms);
-        result.receivedCompressionAlgorithm = receivedNameWithId(compressionAlgorithms, peerC2SCompressionAlgorithms, peerS2CCompressionAlgorithms);
-
-        return result.valid() ? result : null;
-    }
-
-    private NameWithId sentNameWithId(NameListWithIds own, NameListWithIds c2s, NameListWithIds s2c) {
-        return own.getFirstMatchingNameWithId(side == Constant.CLIENT_SIDE ? s2c : c2s);
-    }
-
-    private NameWithId receivedNameWithId(NameListWithIds own, NameListWithIds c2s, NameListWithIds s2c) {
-        return own.getFirstMatchingNameWithId(side == Constant.SERVER_SIDE ? s2c : c2s);
-    }
-
-    private static class NegotiatedAlgorithms {
-        public NameWithId kexAlgorithm;
-        public NameWithId hostKeyAlgorithm;
-        public NameWithId sentEncryptionAlgorithm;
-        public NameWithId receivedEncryptionAlgorithm;
-        public NameWithId sentMacAlgorithm;
-        public NameWithId receivedMacAlgorithm;
-        public NameWithId sentCompressionAlgorithm;
-        public NameWithId receivedCompressionAlgorithm;
-
-        public boolean valid() {
-            return (kexAlgorithm.valid(false)
-                    && hostKeyAlgorithm.valid(false)
-                    && sentEncryptionAlgorithm.valid(false)
-                    && receivedEncryptionAlgorithm.valid(false)
-                    && sentMacAlgorithm.valid(false)
-                    && receivedMacAlgorithm.valid(false)
-                    && sentCompressionAlgorithm.valid(true)
-                    && receivedCompressionAlgorithm.valid(true)
-            );
-        }
     }
 
     public enum State {

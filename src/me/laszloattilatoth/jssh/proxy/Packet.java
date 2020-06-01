@@ -18,18 +18,21 @@ public class Packet {
     private byte[] buffer;
     private int position = 0;
     private int maxSize;
+    private int bufferEnd;
     private int size;   // size of valid data (buffer may be larger)
 
     public Packet(byte[] bytes) {
         this.buffer = bytes;
         this.maxSize = this.buffer.length;
         this.size = this.buffer.length;
+        this.bufferEnd = this.buffer.length;
     }
 
     public Packet() {
         this.buffer = new byte[INIT_SIZE];
         this.maxSize = MAX_SIZE;
         this.size = 0;
+        this.bufferEnd = 0;
     }
 
     private void checkPosition(int requiredLength) throws BufferEndReachedException {
@@ -40,7 +43,7 @@ public class Packet {
     }
 
     private void preserve(int requiredLength) throws BufferEndReachedException {
-        if (requiredLength > maxSize || maxSize - requiredLength < maxSize - position) {
+        if (requiredLength > maxSize || maxSize - requiredLength < size - position) {
             Util.sshLogger().severe(String.format("Unable to allocate required bytes into packet; required='%d'", requiredLength));
             throw new BufferEndReachedException("Unable to allocate bytes in packet");
         }
@@ -59,15 +62,29 @@ public class Packet {
         return buffer[0];
     }
 
-    public int getLength() {
+    public int getAllocatedSize() {
         return buffer.length;
+    }
+
+    public int getSize() {
+        return size;
+    }
+
+    public int getBufferEnd() {
+        return bufferEnd;
+    }
+
+    public byte[] getBufferCopy() {
+        byte[] copy = new byte[size];
+        System.arraycopy(buffer, 0, copy, 0, size);
+        return copy;
     }
 
     public void dump() {
         Logger logger = Util.sshLogger();
         logger.info(() -> String.format("Packet dump follows; packet_type='%d', packet_type_hex='%x', length='%d'",
-                getType(), getType(), buffer.length));
-        Util.logBytes(logger, buffer);
+                getType(), getType(), size));
+        Util.logBytes(logger, buffer, bufferEnd);
     }
 
     public int getPosition() {
@@ -177,6 +194,7 @@ public class Packet {
     private void writeByteUnchecked(byte b) {
         buffer[position++] = b;
         size++;
+        bufferEnd = position;
     }
 
     public void writeByte(int b) throws BufferEndReachedException {
@@ -193,6 +211,7 @@ public class Packet {
         System.arraycopy(b, 0, buffer, position, b.length);
         position += b.length;
         size += b.length;
+        bufferEnd = position;
     }
 
     public void writeUint32(long l) throws BufferEndReachedException {
