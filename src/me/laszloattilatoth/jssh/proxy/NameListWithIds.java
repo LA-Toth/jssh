@@ -42,6 +42,10 @@ public class NameListWithIds {
         return n;
     }
 
+    public int size() {
+        return nameIdList.length;
+    }
+
     public String getOriginalNameList() {
         return originalNameList;
     }

@@ -24,6 +24,8 @@ public class KeyExchange {
     private State state = State.INITIAL;
     private NameListWithIds[] ownAlgos;
     private NameListWithIds[] peerAlgos;
+    private KexInitEntries ownInitEntries;
+    private KexInitEntries peerInitEntries;
 
     private NameWithId name;
 
@@ -126,6 +128,34 @@ public class KeyExchange {
         logger.info(name.getName());
         //kexalg = kex_alg_by_name(name);
 
+    }
+
+    // Validated/partially based on OpenSSH kex.c: kex_choose_conf
+    private void chooseAlgos() throws KexException {
+        KexInitEntries client = isClientSide() ? peerInitEntries : ownInitEntries;
+        KexInitEntries server = isClientSide() ? ownInitEntries : peerInitEntries;
+
+        // not checking ext_info_c (while OpenSSH does)
+
+        // Choose all algos one by one, and throw exception if no matching algo
+        chooseKex(client, server);
+        chooseHostKeyAlg(client, server);
+    }
+
+    private void chooseKex(KexInitEntries client, KexInitEntries server) throws KexException {
+        this.name = matchList(client.entries[KexInitEntries.ENTRY_KEX_ALGOS], server.entries[KexInitEntries.ENTRY_KEX_ALGOS], "No matching KEX algo");
+    }
+
+    private void chooseHostKeyAlg(KexInitEntries client, KexInitEntries server) throws KexException {
+        this.name = matchList(client.entries[KexInitEntries.ENTRY_SERVER_HOST_KEY_ALG], server.entries[KexInitEntries.ENTRY_SERVER_HOST_KEY_ALG], "No matching Hostkey algo");
+    }
+
+    private NameWithId matchList(NameListWithIds client, NameListWithIds server, String exceptionString) throws KexException {
+        int nameId = server.getFirstMatchingId(client);
+        if (nameId == Name.SSH_NAME_UNKNOWN)
+            throw new KexException(exceptionString);
+
+        return new NameWithId(nameId);
     }
 
     public enum State {
