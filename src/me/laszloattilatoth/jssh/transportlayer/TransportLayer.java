@@ -187,13 +187,13 @@ public abstract class TransportLayer {
         packet.dump();
         int payloadSize = packet.getBufferEnd();
         int withHeaders = payloadSize + 1 + 4;
-        int paddingLength  = (withHeaders+7)/8 * 8 - withHeaders;
+        int paddingLength = (withHeaders + 7) / 8 * 8 - withHeaders;
 
         dataOutputStream.writeInt(payloadSize + paddingLength + 1);
         dataOutputStream.writeByte(paddingLength);
         dataOutputStream.write(packet.getBufferCopy(), 0, payloadSize);
         // FIXME: secure padding
-        for (int i =0; i!= paddingLength;++i)
+        for (int i = 0; i != paddingLength; ++i)
             dataOutputStream.writeByte(0);
         // FIXME: mac
     }

@@ -26,6 +26,4 @@ public class NameWithId {
     public boolean valid(boolean enableNone) {
         return this.nameId != Name.SSH_NAME_UNKNOWN && (enableNone || this.nameId != Name.SSH_NAME_NONE);
     }
-
-
 }
