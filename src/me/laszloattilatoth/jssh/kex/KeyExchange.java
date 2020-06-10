@@ -12,6 +12,7 @@ import java.util.Objects;
 import java.util.logging.Logger;
 
 public class KeyExchange {
+
     private final WeakReference<TransportLayer> transportLayer;
     private final Side side;
     private final Config config;
@@ -21,13 +22,16 @@ public class KeyExchange {
     private final NameListWithIds encryptionAlgorithms;
     private final NameListWithIds macAlgorithms;
     private final NameListWithIds compressionAlgorithms;
-    private State state = State.INITIAL;
+    private final State state = State.INITIAL;
     private NameListWithIds[] ownAlgos;
     private NameListWithIds[] peerAlgos;
     private KexInitEntries ownInitEntries;
     private KexInitEntries peerInitEntries;
 
-    private NameWithId name;
+    private NameWithId kexName;
+    private NameWithId hostKeyAlg;
+
+    private final NewKeys[] newKeys = new NewKeys[Constant.MODE_MAX];
 
     public KeyExchange(TransportLayer transportLayer) {
         this.transportLayer = new WeakReference<>(transportLayer);
@@ -112,42 +116,35 @@ public class KeyExchange {
         // peerInitPacket = initPacket;
     }
 
-    private void calculateAlgos() throws KexException {
-        NameListWithIds[] client = isClientSide() ? peerAlgos : ownAlgos;
-        NameListWithIds[] server = isServerSide() ? ownAlgos : peerAlgos;
-
-        calculateKex(client[KexInitPacket.ENTRY_KEX_ALGOS], server[KexInitPacket.ENTRY_KEX_ALGOS]);
-    }
-
-    private void calculateKex(NameListWithIds client, NameListWithIds server) throws KexException {
-        int nameId = client.getFirstMatchingId(server);
-        if (nameId == Name.SSH_NAME_UNKNOWN) {
-            throw new KexException("TODO"); // TODO: xxx
-        }
-        name = new NameWithId(nameId);
-        logger.info(name.getName());
-        //kexalg = kex_alg_by_name(name);
-
-    }
-
     // Validated/partially based on OpenSSH kex.c: kex_choose_conf
     private void chooseAlgos() throws KexException {
         KexInitEntries client = isClientSide() ? peerInitEntries : ownInitEntries;
         KexInitEntries server = isClientSide() ? ownInitEntries : peerInitEntries;
 
-        // not checking ext_info_c (while OpenSSH does)
+        // not checking ext_info_c - RFC 8308
 
         // Choose all algos one by one, and throw exception if no matching algo
-        chooseKex(client, server);
-        chooseHostKeyAlg(client, server);
+        this.kexName = chooseAlg(client, server, KexInitEntries.ENTRY_KEX_ALGOS, "No matching KEX algorithm");
+        this.hostKeyAlg = chooseAlg(client, server, KexInitEntries.ENTRY_SERVER_HOST_KEY_ALG, "No matching HostKey algorithm");
+
+        for (int mode = Constant.MODE_IN; mode != Constant.MODE_MAX; ++mode) {
+            boolean c2s = (isClientSide() && mode == Constant.MODE_IN) || (isServerSide() && mode == Constant.MODE_OUT);
+            int encIdx = c2s ? KexInitEntries.ENTRY_ENC_ALGOS_C2S : KexInitEntries.ENTRY_ENC_ALGOS_S2C;
+            int macIdx = c2s ? KexInitEntries.ENTRY_MAC_ALGOS_C2S : KexInitEntries.ENTRY_MAC_ALGOS_S2C;
+            int compIdx = c2s ? KexInitEntries.ENTRY_COMP_ALGOS_C2S : KexInitEntries.ENTRY_COMP_ALGOS_S2C;
+
+            NewKeys newkeys = new NewKeys();
+            this.newKeys[mode] = newkeys;
+            chooseEncAlg(newkeys, client, server, encIdx);
+            if (newkeys.cipherAuthLen() == 0)
+                chooseMacAlg(newkeys, client, server, macIdx);
+            chooseCompAlg(newkeys, client, server, compIdx);
+        }
+
     }
 
-    private void chooseKex(KexInitEntries client, KexInitEntries server) throws KexException {
-        this.name = matchList(client.entries[KexInitEntries.ENTRY_KEX_ALGOS], server.entries[KexInitEntries.ENTRY_KEX_ALGOS], "No matching KEX algo");
-    }
-
-    private void chooseHostKeyAlg(KexInitEntries client, KexInitEntries server) throws KexException {
-        this.name = matchList(client.entries[KexInitEntries.ENTRY_SERVER_HOST_KEY_ALG], server.entries[KexInitEntries.ENTRY_SERVER_HOST_KEY_ALG], "No matching Hostkey algo");
+    private NameWithId chooseAlg(KexInitEntries client, KexInitEntries server, int index, String exceptionString) throws KexException {
+        return matchList(client.entries[index], server.entries[index], exceptionString);
     }
 
     private NameWithId matchList(NameListWithIds client, NameListWithIds server, String exceptionString) throws KexException {
@@ -156,6 +153,21 @@ public class KeyExchange {
             throw new KexException(exceptionString);
 
         return new NameWithId(nameId);
+    }
+
+    private void chooseEncAlg(NewKeys newKeys, KexInitEntries client, KexInitEntries server, int index) throws KexException {
+        NameWithId encAlg = chooseAlg(client, server, index, "No matching Encryption algorithm");
+        newKeys.setEncryption(encAlg);
+    }
+
+    private void chooseMacAlg(NewKeys newKeys, KexInitEntries client, KexInitEntries server, int index) throws KexException {
+        NameWithId macAlg = chooseAlg(client, server, index, "No matching MAC algorithm");
+        newKeys.setMac(macAlg);
+    }
+
+    private void chooseCompAlg(NewKeys newKeys, KexInitEntries client, KexInitEntries server, int index) throws KexException {
+        NameWithId compAlg = chooseAlg(client, server, index, "No matching Compression algorithm");
+        newKeys.setCompression(compAlg);
     }
 
     public enum State {
