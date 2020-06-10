@@ -17,5 +17,29 @@ public class KexInitEntries {
 
     public static final int ENTRY_NON_EMPTY_MAX = ENTRY_COMP_ALGOS_S2C + 1;
 
-    public final NameListWithIds[] entries = new NameListWithIds[ENTRY_MAX];
+    protected final NameListWithIds[] entries = new NameListWithIds[ENTRY_MAX];
+
+    public KexInitEntries() {
+        for (int i = 0; i != ENTRY_MAX; ++i) {
+            entries[i] = NameListWithIds.create("");
+        }
+    }
+
+    public void set(int entryIndex, NameListWithIds nameListWithIds) throws KexException {
+        if (entryIndex < 0 || entryIndex >= ENTRY_MAX)
+            throw new KexException("Entry index is out of range");
+        entries[entryIndex] = nameListWithIds;
+    }
+
+    public void set(int entryIndex, String nameList) throws KexException {
+        if (entryIndex < 0 || entryIndex >= ENTRY_MAX)
+            throw new KexException("Entry index is out of range");
+        entries[entryIndex] = NameListWithIds.create(nameList);
+    }
+
+    public NameListWithIds get(int entryIndex) throws KexException {
+        if (entryIndex < 0 || entryIndex >= ENTRY_MAX)
+            throw new KexException("Entry index is out of range");
+        return entries[entryIndex];
+    }
 }

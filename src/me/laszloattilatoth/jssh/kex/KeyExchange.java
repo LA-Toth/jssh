@@ -17,16 +17,9 @@ public class KeyExchange {
     private final Side side;
     private final Config config;
     private final Logger logger;
-    private final NameListWithIds kexAlgorithms;
-    private final NameListWithIds hostKeyAlgorithms;
-    private final NameListWithIds encryptionAlgorithms;
-    private final NameListWithIds macAlgorithms;
-    private final NameListWithIds compressionAlgorithms;
     private final State state = State.INITIAL;
-    private NameListWithIds[] ownAlgos;
-    private NameListWithIds[] peerAlgos;
-    private KexInitEntries ownInitEntries;
-    private KexInitEntries peerInitEntries;
+    private final KexInitPacket ownInitPacket = new KexInitPacket();
+    private KexInitPacket peerInitPacket;
 
     private NameWithId kexName;
     private NameWithId hostKeyAlg;
@@ -39,18 +32,18 @@ public class KeyExchange {
         this.side = transportLayer.side;
         this.logger = transportLayer.getLogger();
 
-        this.kexAlgorithms = NameListWithIds.create(Util.getConfigValueBySide(this.config, this.side, "kex_algorithms"));
-        this.hostKeyAlgorithms = NameListWithIds.create(Util.getConfigValueBySide(this.config, this.side, "hostkey_algorithms"));
-        this.encryptionAlgorithms = NameListWithIds.create(Util.getConfigValueBySide(this.config, this.side, "encryption_algorithms"));
-        this.macAlgorithms = NameListWithIds.create(Util.getConfigValueBySide(this.config, this.side, "mac_algorithms"));
-        this.compressionAlgorithms = NameListWithIds.create(Util.getConfigValueBySide(this.config, this.side, "compression_algorithms"));
-
-        /*
-        this.kexAlgorithms.filter();
-        this.encryptionAlgorithms.filter([Name.SSH_NAME_NONE]);
-        this.macAlgorithms.filter([Name.SSH_NAME_NONE]);
-        this.compressionAlgorithms.filter([Name.SSH_NAME_NONE]);
-         */
+        try {
+            this.ownInitPacket.set(KexInitEntries.ENTRY_KEX_ALGOS, NameListWithIds.create(Util.getConfigValueBySide(this.config, this.side, "kex_algorithms")));
+            this.ownInitPacket.set(KexInitEntries.ENTRY_SERVER_HOST_KEY_ALG, NameListWithIds.create(Util.getConfigValueBySide(this.config, this.side, "hostkey_algorithms")));
+            this.ownInitPacket.set(KexInitEntries.ENTRY_ENC_ALGOS_C2S, NameListWithIds.create(Util.getConfigValueBySide(this.config, this.side, "encryption_algorithms")));
+            this.ownInitPacket.set(KexInitEntries.ENTRY_ENC_ALGOS_S2C, this.ownInitPacket.get(KexInitEntries.ENTRY_ENC_ALGOS_C2S));
+            this.ownInitPacket.set(KexInitEntries.ENTRY_MAC_ALGOS_C2S, NameListWithIds.create(Util.getConfigValueBySide(this.config, this.side, "mac_algorithms")));
+            this.ownInitPacket.set(KexInitEntries.ENTRY_MAC_ALGOS_S2C, this.ownInitPacket.get(KexInitEntries.ENTRY_MAC_ALGOS_C2S));
+            this.ownInitPacket.set(KexInitEntries.ENTRY_COMP_ALGOS_C2S, NameListWithIds.create(Util.getConfigValueBySide(this.config, this.side, "compression_algorithms")));
+            this.ownInitPacket.set(KexInitEntries.ENTRY_COMP_ALGOS_S2C, this.ownInitPacket.get(KexInitEntries.ENTRY_COMP_ALGOS_C2S));
+        } catch (KexException e) {
+            // cannot happen. FIXME.
+        }
     }
 
     public State getState() {
@@ -65,22 +58,14 @@ public class KeyExchange {
         return side == Constant.SERVER_SIDE;
     }
 
-    public void sendInitialMsgKexInit() throws KexException {
-        KexInitPacket initPacket = new KexInitPacket();
-        initPacket.setAlgos(KexInitPacket.ENTRY_KEX_ALGOS, kexAlgorithms.getNameList());
-        initPacket.setAlgos(KexInitPacket.ENTRY_SERVER_HOST_KEY_ALG, hostKeyAlgorithms.getNameList());
-        initPacket.setAlgos(KexInitPacket.ENTRY_ENC_ALGOS_C2S, encryptionAlgorithms.getNameList());
-        initPacket.setAlgos(KexInitPacket.ENTRY_ENC_ALGOS_S2C, encryptionAlgorithms.getNameList());
-        initPacket.setAlgos(KexInitPacket.ENTRY_MAC_ALGOS_C2S, macAlgorithms.getNameList());
-        initPacket.setAlgos(KexInitPacket.ENTRY_MAC_ALGOS_S2C, macAlgorithms.getNameList());
-        initPacket.setAlgos(KexInitPacket.ENTRY_COMP_ALGOS_C2S, compressionAlgorithms.getNameList());
-        initPacket.setAlgos(KexInitPacket.ENTRY_COMP_ALGOS_S2C, compressionAlgorithms.getNameList());
-        initPacket.setAlgos(KexInitPacket.ENTRY_LANG_C2S, "");
-        initPacket.setAlgos(KexInitPacket.ENTRY_LANG_S2C, "");
+    public String sideStr() {
+        return isClientSide() ? "client" : "server";
+    }
 
+    public void sendInitialMsgKexInit() throws KexException {
         Packet packet = new Packet();
         try {
-            initPacket.writeToPacket(packet);
+            ownInitPacket.writeToPacket(packet);
         } catch (Packet.BufferEndReachedException e) {
             logger.severe(() -> String.format("Unable to send SSH_MSG_KEXINIT; error='%s'", e.getMessage()));
             throw new KexException(e.getMessage());
@@ -113,13 +98,14 @@ public class KeyExchange {
 
         // TODO: rekeying -send our own kex packet
         // TODO: not always save peer packet
-        // peerInitPacket = initPacket;
+        peerInitPacket = initPacket;
+        chooseAlgos();
     }
 
     // Validated/partially based on OpenSSH kex.c: kex_choose_conf
     private void chooseAlgos() throws KexException {
-        KexInitEntries client = isClientSide() ? peerInitEntries : ownInitEntries;
-        KexInitEntries server = isClientSide() ? ownInitEntries : peerInitEntries;
+        KexInitEntries client = isClientSide() ? peerInitPacket : ownInitPacket;
+        KexInitEntries server = isClientSide() ? ownInitPacket : peerInitPacket;
 
         // not checking ext_info_c - RFC 8308
 
@@ -139,6 +125,15 @@ public class KeyExchange {
             if (newkeys.cipherAuthLen() == 0)
                 chooseMacAlg(newkeys, client, server, macIdx);
             chooseCompAlg(newkeys, client, server, compIdx);
+
+            logger.fine(() -> String.format("KEX algo match; kex='%s', cipher='%s', MAC='%s', compression='%s', direction='%s', side='%s'",
+                    kexName.getName(),
+                    newkeys.enc.name(),
+                    newkeys.mac.name(),
+                    "none", // FIXME
+                    c2s ? "client->server" : "server->client",
+                    sideStr()
+            ));
         }
 
     }
@@ -149,8 +144,15 @@ public class KeyExchange {
 
     private NameWithId matchList(NameListWithIds client, NameListWithIds server, String exceptionString) throws KexException {
         int nameId = server.getFirstMatchingId(client);
-        if (nameId == Name.SSH_NAME_UNKNOWN)
+        if (nameId == Name.SSH_NAME_UNKNOWN) {
+            logger.severe(() -> String.format("KEX algo list mismatch; error='%s', own='%s', peer='%s', side='%s'",
+                    exceptionString,
+                    isClientSide() ? server.getNameList() : client.getNameList(),
+                    isServerSide() ? server.getNameList() : client.getNameList(),
+                    sideStr()
+            ));
             throw new KexException(exceptionString);
+        }
 
         return new NameWithId(nameId);
     }

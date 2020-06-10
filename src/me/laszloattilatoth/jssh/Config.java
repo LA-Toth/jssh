@@ -9,9 +9,9 @@ public class Config {
     private final int port;
     private final int threads;
     private final Map<String, String> configMap = Map.of(
-            "client_kex_algorithms", "diffie-hellman-group-exchange-sha1",
+            "client_kex_algorithms", "diffie-hellman-group14-sha1",
             "client_hostkey_algorithms", "ssh-rsa",
-            "client_encryption_algorithms", "aes128-cbc",
+            "client_encryption_algorithms", "aes128-ctr",
             "client_mac_algorithms", "hmac-sha1",
             "client_compression_algorithms", "none"
     );
