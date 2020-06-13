@@ -7,14 +7,14 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class Ciphers {
-    private static final Map<Integer, Cipher> ciphers = new HashMap<>();
+    private static final Map<Integer, Cipher> list = new HashMap<>();
 
     public static Cipher getById(int nameId) {
-        return ciphers.get(nameId);
+        return list.get(nameId);
     }
 
     public static Cipher getByName(String name) {
-        for (Cipher c : ciphers.values()) {
+        for (Cipher c : list.values()) {
             if (c.name().equals(name)) {
                 return c;
             }
@@ -39,6 +39,6 @@ public class Ciphers {
 
     private static void put(String name, long blockSize, long keyLen, long ivLen, long authLen, long flags) {
         int nameId = Name.getNameId(name);
-        ciphers.put(nameId, new Cipher(name, nameId, blockSize, keyLen, ivLen != 0 ? ivLen : blockSize, authLen, flags));
+        list.put(nameId, new Cipher(name, nameId, blockSize, keyLen, ivLen != 0 ? ivLen : blockSize, authLen, flags));
     }
 }

@@ -1,11 +1,11 @@
-package me.laszloattilatoth.jssh.kex;
+package me.laszloattilatoth.jssh.crypto;
 
 import me.laszloattilatoth.jssh.kex.algo.Cipher;
 
-public class KexAlgo {
+public class Encryption {
     private final Cipher cipher;
 
-    public KexAlgo(Cipher cipher) {
+    public Encryption(Cipher cipher) {
         this.cipher = cipher;
     }
 

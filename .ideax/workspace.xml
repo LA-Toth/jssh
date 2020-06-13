@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="192e9c4a-1bed-4efe-836c-6f83b260ad1a" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/src/me/laszloattilatoth/jssh/kex/KeyExchange.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/me/laszloattilatoth/jssh/kex/KeyExchange.java" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="CodeStyleSettingsInfer">
+    <option name="done" value="true" />
+  </component>
+  <component name="ComposerSettings">
+    <execution />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="MacroExpansionManager">
+    <option name="directoryName" value="2ec6iqgr" />
+  </component>
+  <component name="ProjectCodeStyleSettingsMigration">
+    <option name="version" value="1" />
+  </component>
+  <component name="ProjectId" id="1aBQE5Pu49FISM6WNhDvVB9JoPl" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">
+    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
+    <property name="WebServerToolWindowFactoryState" value="false" />
+    <property name="aspect.path.notification.shown" value="true" />
+    <property name="go.import.settings.migrated" value="true" />
+    <property name="ignore.preview.features.used" value="true" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="nodejs_interpreter_path.stuck_in_default_project" value="undefined stuck path" />
+    <property name="nodejs_npm_path_reset_for_default_project" value="true" />
+    <property name="project.structure.last.edited" value="Modules" />
+    <property name="project.structure.proportion" value="0.15" />
+    <property name="project.structure.side.proportion" value="0.2" />
+    <property name="settings.editor.selected.configurable" value="preferences.lookFeel" />
+  </component>
+  <component name="SvnConfiguration">
+    <configuration />
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="192e9c4a-1bed-4efe-836c-6f83b260ad1a" name="Default Changelist" comment="" />
+      <created>1586206392362</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1586206392362</updated>
+      <workItem from="1586206396081" duration="392000" />
+      <workItem from="1586258087102" duration="395000" />
+      <workItem from="1586445447619" duration="470000" />
+      <workItem from="1586517588653" duration="32000" />
+      <workItem from="1586517891415" duration="95000" />
+      <workItem from="1586518136035" duration="543000" />
+      <workItem from="1586518858229" duration="920000" />
+      <workItem from="1587061662729" duration="3198000" />
+      <workItem from="1587149247247" duration="616000" />
+      <workItem from="1587152223521" duration="1160000" />
+      <workItem from="1587210722452" duration="800000" />
+      <workItem from="1587231272043" duration="110000" />
+      <workItem from="1587231394764" duration="121000" />
+      <workItem from="1587231529149" duration="10000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="2" />
+  </component>
+  <component name="WindowStateProjectService">
+    <state x="586" y="258" key="#Inspections" timestamp="1587211331409">
+      <screen x="0" y="0" width="1920" height="1160" />
+    </state>
+    <state x="586" y="258" key="#Inspections/0.0.1920.1160@0.0.1920.1160" timestamp="1587211331409" />
+    <state x="698" y="394" key="#com.intellij.ide.util.TreeClassChooserDialog" timestamp="1586206534614">
+      <screen x="0" y="0" width="1920" height="1200" />
+    </state>
+    <state x="698" y="394" key="#com.intellij.ide.util.TreeClassChooserDialog/0.0.1920.1200@0.0.1920.1200" timestamp="1586206534614" />
+    <state x="798" y="153" key="FileChooserDialogImpl" timestamp="1587231418371">
+      <screen x="0" y="0" width="1536" height="824" />
+    </state>
+    <state x="798" y="153" key="FileChooserDialogImpl/0.0.1536.824@0.0.1536.824" timestamp="1587231418370" />
+    <state x="998" y="215" key="FileChooserDialogImpl/0.0.1920.1160@0.0.1920.1160" timestamp="1587210962572" />
+    <state x="498" y="0" key="SettingsEditor" timestamp="1587231423560">
+      <screen x="0" y="0" width="1536" height="824" />
+    </state>
+    <state x="498" y="0" key="SettingsEditor/0.0.1536.824@0.0.1536.824" timestamp="1587231423560" />
+    <state x="623" y="0" key="SettingsEditor/0.0.1920.1160@0.0.1920.1160" timestamp="1587210966692" />
+    <state x="802" y="148" key="SettingsEditor/0.0.1920.1200@0.0.1920.1200" timestamp="1586520077180" />
+  </component>
+</project>

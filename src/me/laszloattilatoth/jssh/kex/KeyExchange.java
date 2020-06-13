@@ -1,22 +1,19 @@
 package me.laszloattilatoth.jssh.kex;
 
-import me.laszloattilatoth.jssh.Config;
 import me.laszloattilatoth.jssh.Util;
+import me.laszloattilatoth.jssh.algo.KeyAlgo;
+import me.laszloattilatoth.jssh.algo.KeyAlgos;
+import me.laszloattilatoth.jssh.kex.algo.KexAlgo;
+import me.laszloattilatoth.jssh.kex.algo.KexAlgos;
 import me.laszloattilatoth.jssh.proxy.*;
 import me.laszloattilatoth.jssh.transportlayer.TransportLayer;
 import me.laszloattilatoth.jssh.transportlayer.TransportLayerException;
+import me.laszloattilatoth.jssh.transportlayer.WithTransportLayer;
 
 import java.io.IOException;
-import java.lang.ref.WeakReference;
 import java.util.Objects;
-import java.util.logging.Logger;
 
-public class KeyExchange {
-
-    private final WeakReference<TransportLayer> transportLayer;
-    private final Side side;
-    private final Config config;
-    private final Logger logger;
+public class KeyExchange extends WithTransportLayer {
     private final State state = State.INITIAL;
     private final KexInitPacket ownInitPacket = new KexInitPacket();
     private KexInitPacket peerInitPacket;
@@ -27,10 +24,7 @@ public class KeyExchange {
     private final NewKeys[] newKeys = new NewKeys[Constant.MODE_MAX];
 
     public KeyExchange(TransportLayer transportLayer) {
-        this.transportLayer = new WeakReference<>(transportLayer);
-        this.config = transportLayer.getConfig();
-        this.side = transportLayer.side;
-        this.logger = transportLayer.getLogger();
+        super(transportLayer);
 
         try {
             this.ownInitPacket.set(KexInitEntries.ENTRY_KEX_ALGOS, NameListWithIds.create(Util.getConfigValueBySide(this.config, this.side, "kex_algorithms")));
@@ -103,15 +97,15 @@ public class KeyExchange {
     }
 
     // Validated/partially based on OpenSSH kex.c: kex_choose_conf
-    private void chooseAlgos() throws KexException {
+    private void chooseAlgos() throws TransportLayerException {
         KexInitEntries client = isClientSide() ? peerInitPacket : ownInitPacket;
         KexInitEntries server = isClientSide() ? ownInitPacket : peerInitPacket;
 
         // not checking ext_info_c - RFC 8308
 
         // Choose all algos one by one, and throw exception if no matching algo
-        this.kexName = chooseAlg(client, server, KexInitEntries.ENTRY_KEX_ALGOS, "No matching KEX algorithm");
-        this.hostKeyAlg = chooseAlg(client, server, KexInitEntries.ENTRY_SERVER_HOST_KEY_ALG, "No matching HostKey algorithm");
+        chooseKex(client, server);
+        chooseHostKeyAlg(client, server);
 
         for (int mode = Constant.MODE_IN; mode != Constant.MODE_MAX; ++mode) {
             boolean c2s = (isClientSide() && mode == Constant.MODE_IN) || (isServerSide() && mode == Constant.MODE_OUT);
@@ -136,6 +130,49 @@ public class KeyExchange {
             ));
         }
 
+        // Send KexDH reply
+        //
+        /*
+
+        	need = dh_need = 0;
+	for (mode = 0; mode < MODE_MAX; mode++) {
+		newkeys = kex->newkeys[mode];
+		need = MAXIMUM(need, newkeys->enc.key_len);
+		need = MAXIMUM(need, newkeys->enc.block_size);
+		need = MAXIMUM(need, newkeys->enc.iv_len);
+		need = MAXIMUM(need, newkeys->mac.key_len);
+		dh_need = MAXIMUM(dh_need, cipher_seclen(newkeys->enc.cipher));
+		dh_need = MAXIMUM(dh_need, newkeys->enc.block_size);
+		dh_need = MAXIMUM(dh_need, newkeys->enc.iv_len);
+		dh_need = MAXIMUM(dh_need, newkeys->mac.key_len);
+	}
+        kex->we_need = need;
+        kex->dh_need = dh_need;
+
+
+        if (first_kex_follows && !proposals_match(my, peer))
+            ssh->dispatch_skip_packets = 1;
+        r = 0;
+        out:
+         */
+    }
+
+    private void chooseHostKeyAlg(KexInitEntries client, KexInitEntries server) throws TransportLayerException {
+        hostKeyAlg = chooseAlg(client, server, KexInitEntries.ENTRY_SERVER_HOST_KEY_ALG, "No matching HostKey algorithm");
+        KeyAlgo keyAlgo = KeyAlgos.getByNameWithId(this.kexName);
+        if (keyAlgo == null) {
+            sendDisconnectMsg(Constant.SSH_DISCONNECT_KEY_EXCHANGE_FAILED, "Internal error, Negotiated host key algorithm is not supported");
+            throw new KexException(String.format("Negotiated host key algorithm is not supported; algo='%s'", hostKeyAlg.getName()));
+        }
+    }
+
+    private void chooseKex(KexInitEntries client, KexInitEntries server) throws TransportLayerException {
+        this.kexName = chooseAlg(client, server, KexInitEntries.ENTRY_KEX_ALGOS, "No matching KEX algorithm");
+        KexAlgo kexAlgo = KexAlgos.getByNameWithId(this.kexName);
+        if (kexAlgo == null) {
+            sendDisconnectMsg(Constant.SSH_DISCONNECT_KEY_EXCHANGE_FAILED, "Internal error, Negotiated KEX algorithm is not supported");
+            throw new KexException(String.format("v; algo='%s'", kexName.getName()));
+        }
     }
 
     private NameWithId chooseAlg(KexInitEntries client, KexInitEntries server, int index, String exceptionString) throws KexException {

@@ -7,14 +7,14 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class Macs {
-    private static final Map<Integer, Mac> macs = new HashMap<>();
+    private static final Map<Integer, Mac> list = new HashMap<>();
 
     public static Mac getById(int nameId) {
-        return macs.get(nameId);
+        return list.get(nameId);
     }
 
     public static Mac getByName(String name) {
-        for (Mac m : macs.values()) {
+        for (Mac m : list.values()) {
             if (m.name().equals(name)) {
                 return m;
             }
@@ -33,6 +33,6 @@ public class Macs {
 
     private static void put(String name) {
         int nameId = Name.getNameId(name);
-        macs.put(nameId, new Mac(name, nameId));
+        list.put(nameId, new Mac(name, nameId));
     }
 }
